@@ -18,9 +18,21 @@ T_ResultsVariable = T_Original.Death;
 
 
 % ---------- Apply decision Tree model -----------
-Mdl = fitctree(T_Data,T_ResultsVariable, 'CategoricalPredictors', 'Genotype', 'MinParentSize',3);
+Mdl = fitctree(T_Data,T_ResultsVariable, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3);
 view(Mdl,'Mode','graph');
 
+% --------- Importance Predictor -------
+imp = predictorImportance(Mdl);
+
+figure;
+bar(imp);
+title('Predictor Importance Estimates');
+ylabel('Estimates');
+xlabel('Predictors');
+h = gca;
+h.XTickLabel = Mdl.PredictorNames;
+h.XTickLabelRotation = 45;
+h.TickLabelInterpreter = 'none';
 
 % --------- Trial
 %label = predict(Mdl,T_Data);
