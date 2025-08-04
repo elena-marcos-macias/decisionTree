@@ -17,7 +17,7 @@ T_Data = selectColumns (T_Original, target_columns, ignore_columns);
 T_ResultsVariable = T_Original.Death;
 
 
-% ---------- Create decision Tree model with all the dataset (maybe not in this order) -----------
+% ---------- Create decision Tree model -----------
 Mdl = fitctree(T_Data,T_ResultsVariable, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3);
 
     % --------- view the tree -------------
@@ -38,5 +38,5 @@ Mdl = fitctree(T_Data,T_ResultsVariable, 'CategoricalPredictors', {'Genotype'}, 
 
 % --------- Validate the model -----------
 
-CVMdl = fitctree(T_Data,T_ResultsVariable, 'KFold', 5, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3); %train a model to cross validate
+CVMdl = fitctree(T_Data,T_ResultsVariable, 'KFold', 5, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3); %activate a model to cross validate
 
