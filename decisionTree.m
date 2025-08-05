@@ -17,14 +17,37 @@ T_Data = selectColumns (T_Original, target_columns, ignore_columns);
 T_ResultsVariable = T_Original.Death;
 
 
-% ---------- Create decision Tree model with all the dataset (maybe not in this order) -----------
-Mdl = fitctree(T_Data,T_ResultsVariable, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3);
+%% VALIDATE THE MODEL:
+% Once chosen we are going to use a Classification Tree model we have to
+% make sure its predictive capacity is good enough
 
-    % --------- view the tree -------------
-    view(Mdl,'Mode','graph');
+% TRAIN THE CROSS-VALIDATION MODEL
+    % Divides the dataset into k equal-sized subdatasets and trains the 
+    % model k times, each time leaving as the validation dataset one of 
+    % said partitions. In this case it's going to perform the test 5 times,
+    % each time using 80% as the training dataset and the other 20% as the
+    % test dataset. It does not return a normal decision tree, but one used
+    % to assess the quality of the model.
 
-    % --------- Importance Predictor -------
-    imp = predictorImportance(Mdl);
+CVMdl = fitctree(T_Data,T_ResultsVariable, 'KFold', 5, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3); 
+
+% ASSESS THE QUALITY OF THE MODEL
+
+label = kfoldPredict(CVMdl);
+    CVLoss = kfoldLoss(CVMdl);
+    confusionchart (T_ResultsVariable,label);
+
+%% TRAIN THE MODEL
+% Using the whole of the dataset train the model in order to have a
+% Classification Tree with predictive capacity.
+
+Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3);
+
+% VIEW THE TREE
+view(Mdl,'Mode','graph');
+
+% PREDICTORS' IMPORTANCE
+imp = predictorImportance(Mdl);
     
     figure;
     bar(imp);
@@ -35,8 +58,3 @@ Mdl = fitctree(T_Data,T_ResultsVariable, 'CategoricalPredictors', {'Genotype'}, 
     h.XTickLabel = Mdl.PredictorNames;
     h.XTickLabelRotation = 45;
     h.TickLabelInterpreter = 'none';
-
-% --------- Validate the model -----------
-
-CVMdl = fitctree(T_Data,T_ResultsVariable, 'KFold', 5, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3); %train a model to cross validate
-
