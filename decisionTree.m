@@ -3,6 +3,9 @@ addpath (genpath('./utils'));
 addpath ('./requirements');
 savePath = './results/';
 
+
+%% TRAINING DATASET
+
 %--------- Load data ---------
 fileName = char("FUS_test6.xlsx");
 T_Original = readtable(['./data/' fileName]);
@@ -33,7 +36,7 @@ CVMdl = fitctree(T_Data,T_ResultsVariable, 'KFold', 5, 'CategoricalPredictors', 
 
 % ASSESS THE QUALITY OF THE MODEL
 
-label = kfoldPredict(CVMdl);
+[label, Score] = kfoldPredict(CVMdl);
     CVLoss = kfoldLoss(CVMdl);
     confusionchart (T_ResultsVariable,label);
 
@@ -49,6 +52,8 @@ view(Mdl,'Mode','graph');
 % PREDICTORS' IMPORTANCE
 imp = predictorImportance(Mdl);
     
+    % En esta figura tiene que haber un error porque no posiciona las
+    % barras en los predictores que ha usado para crear los nodos.
     figure;
     bar(imp);
     title('Predictor Importance Estimates');
@@ -58,3 +63,5 @@ imp = predictorImportance(Mdl);
     h.XTickLabel = Mdl.PredictorNames;
     h.XTickLabelRotation = 45;
     h.TickLabelInterpreter = 'none';
+
+%% TEST DATASET
