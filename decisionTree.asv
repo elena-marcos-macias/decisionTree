@@ -20,10 +20,31 @@ T_Data = selectColumns (T_Original, target_columns, ignore_columns);
 T_ResultsVariable = T_Original.Death;
 
 %% PREPARE WEIGHTS
-% Because the dataset's classes are very imbalanced 
+% Because the dataset's classes are very imbalanced the model will be
+% biased thowards the majority class, making it more likely to make a
+% mistake in the minority class (our interest class). To manage imbalance
+% we are going to use the Weights Approach.
+
+% --- 1. Compute class frequencies ---
+[classNames, ~, idxClass] = unique(T_ResultsVariable);      % classNames is a cell array of labels
+nClasses = numel(classNames);                               % number of classes
+counts   = accumarray(idxClass, 1);                         % count per class
+nTotal   = numel(T_ResultsVariable);                        % total number of observations
+
+% --- 2. Compute per-class weights: w_c ∝ 1/counts(c) ---
+%    Normalize so that sum of all sample weights = nTotal
+invFreq   = 1 ./ counts;                                    % inverse frequency per class
+normFactor = nTotal / sum(counts .* invFreq);
+classWeights = normFactor .* invFreq;                       % vector of length nClasses
+
+% --- 3. Build a weight vector W matching observations ---
+W = classWeights(idxClass);                 % maps each sample to its class weight
+
+% (Optional) Check that sum(W) == nTotal:
+fprintf('Sum of weights: %.1f (should be %d)\n', sum(W), nTotal);
 
 
-%% VALIDATE THE MODEL:
+%% VALIDATE THE MODEL
 % Once chosen we are going to use a Classification Tree model we have to
 % make sure its predictive capacity is good enough
 
@@ -35,13 +56,46 @@ T_ResultsVariable = T_Original.Death;
     % test dataset. It does not return a normal decision tree, but one used
     % to assess the quality of the model.
 
-CVMdl = fitctree(T_Data,T_ResultsVariable, 'KFold', 5, 'CategoricalPredictors', {'Genotype'}, 'MinParentSize',3); 
+   
+% 1) Unweighted CV tree
+CVMdl = fitctree( ...
+    T_Data, T_ResultsVariable, ...
+    'KFold',           5, ...
+    'CategoricalPredictors', {'Genotype'}, ...
+    'MinParentSize',   3);
 
-% ASSESS THE QUALITY OF THE MODEL
+% 2) Weighted CV tree
+%    — note the correct name: 'Weights'
+WeightCVMdl = fitctree( ...
+    T_Data, T_ResultsVariable, ...
+    'KFold',           5, ...
+    'Weights',         W, ...
+    'CategoricalPredictors', {'Genotype'}, ...
+    'MinParentSize',   3);
 
-[label, Score] = kfoldPredict(CVMdl);
-    CVLoss = kfoldLoss(CVMdl);
-    confusionchart (T_ResultsVariable,label);
+% 3) Compute losses 
+    % --- missclassification rates ----
+unweightedCVLoss = kfoldLoss(CVMdl);
+weightedCVLoss   = kfoldLoss(WeightCVMdl);
+
+fprintf('Unweighted 5-fold CV loss: %.3f\n', unweightedCVLoss);
+fprintf('Weighted   5-fold CV loss: %.3f\n', weightedCVLoss);
+
+    % --- cross entrophy ----
+
+
+% 4) (Optional) confusion charts
+unwLabel = kfoldPredict(CVMdl);
+wtLabel  = kfoldPredict(WeightCVMdl);
+
+figure;
+confusionchart(T_ResultsVariable, unwLabel);
+title('Unweighted CV Confusion Matrix');
+
+figure;
+confusionchart(T_ResultsVariable, wtLabel);
+title('Weighted CV Confusion Matrix');
+
 
 %% TRAIN THE MODEL
 % Using the whole of the dataset train the model in order to have a
@@ -68,3 +122,16 @@ imp = predictorImportance(Mdl);
     h.TickLabelInterpreter = 'none';
 
 %% TEST DATASET
+DeathFUS = predict(Mdl,T_Data);
+
+%CALCULATE TEST ERROR
+
+% Compare predictions with true labels
+nTotal = numel(T_ResultsVariable);
+nIncorrect = sum(~strcmp(DeathFUS, T_ResultsVariable));  % Count incorrect predictions
+
+% Compute test error (misclassification rate)
+testError = nIncorrect / nTotal;
+
+% Display result
+fprintf('Test Error (on training data): %.3f\n', testError);

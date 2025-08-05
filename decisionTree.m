@@ -73,13 +73,18 @@ WeightCVMdl = fitctree( ...
     'CategoricalPredictors', {'Genotype'}, ...
     'MinParentSize',   3);
 
-% 3) Compute losses --> missclassification rates
+% 3) Compute losses 
+    % --- missclassification rates ----
 unweightedCVLoss = kfoldLoss(CVMdl);
 weightedCVLoss   = kfoldLoss(WeightCVMdl);
 
 fprintf('Unweighted 5-fold CV loss: %.3f\n', unweightedCVLoss);
 fprintf('Weighted   5-fold CV loss: %.3f\n', weightedCVLoss);
 
+    % --- Hinge Loss Calculation 
+
+
+    
 % 4) (Optional) confusion charts
 unwLabel = kfoldPredict(CVMdl);
 wtLabel  = kfoldPredict(WeightCVMdl);
@@ -118,3 +123,16 @@ imp = predictorImportance(Mdl);
     h.TickLabelInterpreter = 'none';
 
 %% TEST DATASET
+DeathFUS = predict(Mdl,T_Data);
+
+%CALCULATE TEST ERROR
+
+% Compare predictions with true labels
+nTotal = numel(T_ResultsVariable);
+nIncorrect = sum(~strcmp(DeathFUS, T_ResultsVariable));  % Count incorrect predictions
+
+% Compute test error (misclassification rate)
+testError = nIncorrect / nTotal;
+
+% Display result
+fprintf('Test Error (on training data): %.3f\n', testError);

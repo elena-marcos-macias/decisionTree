@@ -15,11 +15,11 @@ if ~exist(savePath, 'dir')
 end
 
 %% --------- Load and clean data ---------
-T_Original = readtable(fullfile('./data','FUS_test6.xlsx'));
+T_Original = readtable(fullfile('./data','FUS_test7.xlsx'));
 T_Original = rmmissing(T_Original);
 
 %% --------- Select features and target ---------
-target_columns = [1,22];
+target_columns = [1,17];
 ignore_columns = [2,3];
 T_Data = selectColumns(T_Original, target_columns, ignore_columns);
 labels = categorical(T_Original.Death);
@@ -52,7 +52,7 @@ Y = tsne( ...
     'Perplexity',       30, ...
     'LearnRate',        500, ...    % higher than default
     'Exaggeration',     12, ...     % stronger early pull
-    'NumPCAComponents', 20, ...    % keep more variance before t-SNE
+    'NumPCAComponents', 15, ...    % keep more variance before t-SNE
     'Algorithm',        'exact', ...% use the exact gradient (slower, sometimes better)
     'Verbose',          1, ...
     'Standardize',      false ...
