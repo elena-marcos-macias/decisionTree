@@ -165,6 +165,7 @@ Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {'Genotype'},
 
 % VIEW THE TREE
 view(Mdl,'Mode','graph');
+savefig(fullfile(savePath, 'DecisionTree.fig'));
 
 % PREDICTORS' IMPORTANCE
     % Get importance and predictor names
@@ -191,6 +192,9 @@ view(Mdl,'Mode','graph');
     %ax.XTickLabel = predictorNamesSorted; --- to sort by importance
     ax.XTickLabelRotation = 45;
     ax.TickLabelInterpreter = 'none';
+
+    % save as .fig
+    savefig(fullfile(savePath, 'PredictorImportance.fig'));
 
 %% TEST DATASET
 DeathFUS = predict(Mdl,T_Data);
@@ -244,4 +248,9 @@ sgtitle ('Confussion Matrices per model');
     subplot(1,4,4);
     confusionchart(trueLabels, trainingDatasetPredictions);
     title('Final Model (with Training Data)');
- 
+
+ % save as .fig
+ savefig(fullfile(savePath, 'ConfusionCharts.fig'));
+
+
+ %% CREATE AN EXCEL FILE 
