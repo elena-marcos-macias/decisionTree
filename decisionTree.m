@@ -108,7 +108,7 @@ fprintf('Weighted   5-fold CV loss: %.3f\n', missClassRateWeight);
 cv = cvpartition(T_ResultsVariable, 'KFold', 5);
 
 % --- Initialize prediction vector ---
-predictedLabels = strings(size(T_ResultsVariable));
+OSLabels = strings(size(T_ResultsVariable));
 
 for i = 1:cv.NumTestSets
     % Indices for training and testing
@@ -132,7 +132,7 @@ for i = 1:cv.NumTestSets
 
     for j = 1:numel(classNames)
         cls = classNames(j);
-        idx = find(YTrain == cls);
+        idx = find(strcmp(YTrain, cls));
 
         % Compute how many more samples needed
         nToAdd = maxCount - numel(idx);
@@ -155,15 +155,18 @@ for i = 1:cv.NumTestSets
     YPred = predict(OSCVMdl, XTest);
 
     % Save predictions
-    predictedLabels(testIdx) = YPred;
+    OSLabels(testIdx) = YPred;
 end
 
 % ------------------ Evaluate model ------------------------
-confusionchart(Y, predictedLabels);
+OSLabels = cellstr(OSLabels);
+
+figure;
+confusionchart(T_ResultsVariable, OSLabels);
 title('Oversampled CV Confusion Matrix');
 
 % --- Misclassification rate ---
-missClassRateOS = sum(~strcmp(predictedLabels, Y)) / numel(Y);
+missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
 fprintf('Oversampled CV Misclassification Rate: %.3f\n', missClassRateOS);
 
 
@@ -177,19 +180,30 @@ Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {'Genotype'},
 view(Mdl,'Mode','graph');
 
 % PREDICTORS' IMPORTANCE
-imp = predictorImportance(Mdl);
+    % Get importance and predictor names
+    imp = predictorImportance(Mdl);
+    predictorNames = Mdl.PredictorNames;
     
-    % En esta figura tiene que haber un error porque no posiciona las
-    % barras en los predictores que ha usado para crear los nodos.
+    % --- If you want to Sort by importance (descending) --- make this two lines readable
+    %[impSorted, idxSorted] = sort(imp, 'descend');
+    %predictorNamesSorted = predictorNames(idxSorted);
+    
+    % Plot sorted importance
     figure;
     bar(imp);
+    %bar(impSorted); --- to sort by importance
     title('Predictor Importance Estimates');
-    ylabel('Estimates');
+    ylabel('Importance');
     xlabel('Predictors');
-    h = gca;
-    h.XTickLabel = Mdl.PredictorNames;
-    h.XTickLabelRotation = 45;
-    h.TickLabelInterpreter = 'none';
+    
+    % Set X-axis labels
+    ax = gca;
+    ax.XTick = 1:numel(predictorNames);
+    %ax.XTick = 1:numel(predictorNamesSorted); --- to sort by importance
+    ax.XTickLabel = predictorNames;
+    %ax.XTickLabel = predictorNamesSorted; --- to sort by importance
+    ax.XTickLabelRotation = 45;
+    ax.TickLabelInterpreter = 'none';
 
 %% TEST DATASET
 DeathFUS = predict(Mdl,T_Data);
