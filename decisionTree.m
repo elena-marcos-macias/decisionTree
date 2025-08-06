@@ -38,12 +38,8 @@ CVMdl = fitctree( ...
     'CategoricalPredictors', {'Genotype'}, ...
     'MinParentSize',   3);
 
-% ------------------ 2) EVALUATE MODEL ------------------------
+% ------------------ 2) MODEL'S RESULTS ------------------------
 Label = kfoldPredict(CVMdl);
-
-figure;
-confusionchart(T_ResultsVariable, Label);
-title('CV Confusion Matrix');
 
 % --- Misclassification rate ---
 missClassRate = kfoldLoss(CVMdl);
@@ -86,13 +82,8 @@ WeightCVMdl = fitctree( ...
     'MinParentSize',   3);
 
 
-% ------------------ 3) EVALUATE MODEL ------------------------
+% ------------------ 3) MODEL'S RESULTS ------------------------
 wtLabel  = kfoldPredict(WeightCVMdl);
-
-figure;
-confusionchart(T_ResultsVariable, wtLabel);
-title('Weighted CV Confusion Matrix');
-
 
 % --- Misclassification rate ---
 missClassRateWeight  = kfoldLoss(WeightCVMdl); 
@@ -158,12 +149,8 @@ for i = 1:cv.NumTestSets
     OSLabels(testIdx) = YPred;
 end
 
-% ------------------ Evaluate model ------------------------
+% ------------------ MODEL'S RESULTS ------------------------
 OSLabels = cellstr(OSLabels);
-
-figure;
-confusionchart(T_ResultsVariable, OSLabels);
-title('Oversampled CV Confusion Matrix');
 
 % --- Misclassification rate ---
 missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
@@ -208,8 +195,7 @@ view(Mdl,'Mode','graph');
 %% TEST DATASET
 DeathFUS = predict(Mdl,T_Data);
 
-%CALCULATE TEST ERROR
-
+% ------------------ Evaluate model ------------------------
 % Compare predictions with true labels
 nTotal = numel(T_ResultsVariable);
 nIncorrect = sum(~strcmp(DeathFUS, T_ResultsVariable));  % Count incorrect predictions
@@ -219,3 +205,68 @@ testError = nIncorrect / nTotal;
 
 % Display result
 fprintf('Test Error (on training data): %.3f\n', testError);
+
+
+%% PREDICT WITH ANOTHER DATASET
+% I'll have to write this section when I have another dataset to try it
+% with
+
+
+%% CONFUSION CHART
+% Ensure consistent types
+trueLabels = string(T_ResultsVariable);
+Label = string(Label);
+wtLabel = string(wtLabel);
+OSLabels = string(OSLabels);
+trainingDatasetPredictions = string(DeathFUS);
+
+% Create the figure
+f = figure('Units', 'normalized', 'Position', [0.1 0.2 0.8 0.7]);
+
+% Create a tiled layout and reserve space for title at the top and text below
+t = tiledlayout(f, 1, 4);
+t.TileSpacing = 'compact';
+t.Padding = 'compact';
+
+% Adjust layout to leave room at top for title and bottom for text
+t.InnerPosition = [0.05, 0.25, 0.9, 0.65];  % [x, y, width, height]
+
+% Add the overall title
+title(t, 'Confusion Matrices per Model', 'FontSize', 14, 'FontWeight', 'bold');
+
+% --- 1. Standard Confusion Matrix ---
+nexttile;
+confusionchart(trueLabels, Label);
+title('Standard 5-fold CV');
+
+% --- 2. Weighted Confusion Matrix ---
+nexttile;
+confusionchart(trueLabels, wtLabel);
+title('Weighted 5-f CV');
+
+% --- 3. Oversampled Confusion Matrix ---
+nexttile;
+confusionchart(trueLabels, OSLabels);
+title('Oversampled 5-f CV');
+
+% --- 4. Final Model on Training Set ---
+nexttile;
+confusionchart(trueLabels, trainingDatasetPredictions);
+title('Final Model (Training Data)');
+
+% --- Add Textboxes Under Each Chart ---
+annotation(f, 'textbox', [0.08, 0.10, 0.18, 0.05], ...
+    'String', sprintf('mC rate: %.3f', missClassRate), ...
+    'EdgeColor', 'none', 'HorizontalAlignment', 'center', 'FontSize', 10);
+
+annotation(f, 'textbox', [0.30, 0.10, 0.18, 0.05], ...
+    'String', sprintf('mC rate: %.3f', missClassRateWeight), ...
+    'EdgeColor', 'none', 'HorizontalAlignment', 'center', 'FontSize', 10);
+
+annotation(f, 'textbox', [0.52, 0.10, 0.18, 0.05], ...
+    'String', sprintf('mC rate: %.3f', missClassRateOS), ...
+    'EdgeColor', 'none', 'HorizontalAlignment', 'center', 'FontSize', 10);
+
+annotation(f, 'textbox', [0.74, 0.10, 0.18, 0.05], ...
+    'String', sprintf('mC rate: %.3f', testError), ...
+    'EdgeColor', 'none', 'HorizontalAlignment', 'center', 'FontSize', 10);
