@@ -19,36 +19,11 @@ ignore_columns = [2,3];
 T_Data = selectColumns (T_Original, target_columns, ignore_columns);
 T_ResultsVariable = T_Original.Death;
 
-%% PREPARE WEIGHTS
-% Because the dataset's classes are very imbalanced the model will be
-% biased thowards the majority class, making it more likely to make a
-% mistake in the minority class (our interest class). To manage imbalance
-% we are going to use the Weights Approach.
 
-% --- 1. Compute class frequencies ---
-[classNames, ~, idxClass] = unique(T_ResultsVariable);      % classNames is a cell array of labels
-nClasses = numel(classNames);                               % number of classes
-counts   = accumarray(idxClass, 1);                         % count per class
-nTotal   = numel(T_ResultsVariable);                        % total number of observations
-
-% --- 2. Compute per-class weights: w_c ∝ 1/counts(c) ---
-%    Normalize so that sum of all sample weights = nTotal
-invFreq   = 1 ./ counts;                                    % inverse frequency per class
-normFactor = nTotal / sum(counts .* invFreq);
-classWeights = normFactor .* invFreq;                       % vector of length nClasses
-
-% --- 3. Build a weight vector W matching observations ---
-W = classWeights(idxClass);                 % maps each sample to its class weight
-
-% (Optional) Check that sum(W) == nTotal:
-fprintf('Sum of weights: %.1f (should be %d)\n', sum(W), nTotal);
-
-
-%% VALIDATE THE MODEL
+%% CROSS-VALIDATION TREE
 % Once chosen we are going to use a Classification Tree model we have to
 % make sure its predictive capacity is good enough
 
-% TRAIN THE CROSS-VALIDATION MODEL
     % Divides the dataset into k equal-sized subdatasets and trains the 
     % model k times, each time leaving as the validation dataset one of 
     % said partitions. In this case it's going to perform the test 5 times,
@@ -56,16 +31,53 @@ fprintf('Sum of weights: %.1f (should be %d)\n', sum(W), nTotal);
     % test dataset. It does not return a normal decision tree, but one used
     % to assess the quality of the model.
 
-   
-% 1) Unweighted CV tree
+% ------------------ 1) TREE ------------------ 
 CVMdl = fitctree( ...
     T_Data, T_ResultsVariable, ...
     'KFold',           5, ...
     'CategoricalPredictors', {'Genotype'}, ...
     'MinParentSize',   3);
 
-% 2) Weighted CV tree
-%    — note the correct name: 'Weights'
+% ------------------ 2) EVALUATE MODEL ------------------------
+Label = kfoldPredict(CVMdl);
+
+figure;
+confusionchart(T_ResultsVariable, Label);
+title('CV Confusion Matrix');
+
+% --- Misclassification rate ---
+missClassRate = kfoldLoss(CVMdl);
+fprintf('5-fold CV loss: %.3f\n', missClassRate);
+
+
+%% CROSS-VALIDATION TREE WITH WEIGHTS
+    % Because the dataset's classes are very imbalanced the model will be
+    % biased thowards the majority class, making it more likely to make a
+    % mistake in the minority class (our interest class). To manage imbalance
+    % we are going to use the Weights Approach.
+
+
+% ------------------ 1) PREPARE WEIGHTS ------------------ 
+% --- Compute class frequencies ---
+[classNames, ~, idxClass] = unique(T_ResultsVariable);      % classNames is a cell array of labels
+nClasses = numel(classNames);                               % number of classes
+counts   = accumarray(idxClass, 1);                         % count per class
+nTotal   = numel(T_ResultsVariable);                        % total number of observations
+
+% --- Compute per-class weights: w_c ∝ 1/counts(c) ---
+% Normalize so that sum of all sample weights = nTotal
+invFreq   = 1 ./ counts;                                    % inverse frequency per class
+normFactor = nTotal / sum(counts .* invFreq);
+classWeights = normFactor .* invFreq;                       % vector of length nClasses
+
+% --- Build a weight vector W matching observations ---
+W = classWeights(idxClass);                 % maps each sample to its class weight
+
+% --- (Optional) Check that sum(W) == nTotal: ---
+%fprintf('Sum of weights: %.1f (should be %d)\n', sum(W), nTotal);
+
+
+% ------------------ 2) WEIGHTED TREE ------------------ 
 WeightCVMdl = fitctree( ...
     T_Data, T_ResultsVariable, ...
     'KFold',           5, ...
@@ -73,29 +85,86 @@ WeightCVMdl = fitctree( ...
     'CategoricalPredictors', {'Genotype'}, ...
     'MinParentSize',   3);
 
-% 3) Compute losses 
-    % --- missclassification rates ----
-unweightedCVLoss = kfoldLoss(CVMdl);
-weightedCVLoss   = kfoldLoss(WeightCVMdl);
 
-fprintf('Unweighted 5-fold CV loss: %.3f\n', unweightedCVLoss);
-fprintf('Weighted   5-fold CV loss: %.3f\n', weightedCVLoss);
-
-    % --- Hinge Loss Calculation 
-
-
-    
-% 4) (Optional) confusion charts
-unwLabel = kfoldPredict(CVMdl);
+% ------------------ 3) EVALUATE MODEL ------------------------
 wtLabel  = kfoldPredict(WeightCVMdl);
-
-figure;
-confusionchart(T_ResultsVariable, unwLabel);
-title('Unweighted CV Confusion Matrix');
 
 figure;
 confusionchart(T_ResultsVariable, wtLabel);
 title('Weighted CV Confusion Matrix');
+
+
+% --- Misclassification rate ---
+missClassRateWeight  = kfoldLoss(WeightCVMdl); 
+fprintf('Weighted   5-fold CV loss: %.3f\n', missClassRateWeight);
+
+
+
+%% CROSS-VALIDATION TREE WITH OVERSAMPLING
+    % Weighting didn´t work very well. I'm going to try oversampling as to
+    % manage the imbalance and reduce error in the minority class.
+
+% --- Create 5-fold partition ---
+cv = cvpartition(T_ResultsVariable, 'KFold', 5);
+
+% --- Initialize prediction vector ---
+predictedLabels = strings(size(T_ResultsVariable));
+
+for i = 1:cv.NumTestSets
+    % Indices for training and testing
+    trainIdx = training(cv, i);
+    testIdx  = test(cv, i);
+
+    % Split data
+    XTrain = T_Data(trainIdx,:);
+    YTrain = T_ResultsVariable(trainIdx);
+    XTest = T_Data(testIdx,:);
+    YTest = T_ResultsVariable(testIdx);
+
+    % ------------------ OVERSAMPLING -------------------
+    % Find class counts
+    classNames = unique(YTrain);
+    counts = groupcounts(YTrain);
+    maxCount = max(counts);
+
+    XBalanced = XTrain;
+    YBalanced = YTrain;
+
+    for j = 1:numel(classNames)
+        cls = classNames(j);
+        idx = find(YTrain == cls);
+
+        % Compute how many more samples needed
+        nToAdd = maxCount - numel(idx);
+
+        if nToAdd > 0
+            % Randomly sample with replacement
+            sampledIdx = datasample(idx, nToAdd, 'Replace', true);
+            XBalanced = [XBalanced; XTrain(sampledIdx,:)];
+            YBalanced = [YBalanced; YTrain(sampledIdx)];
+        end
+    end
+
+    % ------------------ Train model --------------------
+    OSCVMdl = fitctree(...
+        XBalanced, YBalanced, ...
+        'CategoricalPredictors', {'Genotype'}, ...
+        'MinParentSize', 3);
+
+    % ------------------ Predict ------------------------
+    YPred = predict(OSCVMdl, XTest);
+
+    % Save predictions
+    predictedLabels(testIdx) = YPred;
+end
+
+% ------------------ Evaluate model ------------------------
+confusionchart(Y, predictedLabels);
+title('Oversampled CV Confusion Matrix');
+
+% --- Misclassification rate ---
+missClassRateOS = sum(~strcmp(predictedLabels, Y)) / numel(Y);
+fprintf('Oversampled CV Misclassification Rate: %.3f\n', missClassRateOS);
 
 
 %% TRAIN THE MODEL
