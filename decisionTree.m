@@ -29,9 +29,6 @@ counts = accumarray(idxClass, 1);
 majorityClass = classNames(majorityIdx);
 minorityClass = classNames(minorityIdx);
 
-fprintf('Majority class: %s (%d samples)\n', majorityClass{1}, counts(majorityIdx));
-fprintf('Minority class: %s (%d samples)\n', minorityClass{1}, counts(minorityIdx));
-
 
 %% CROSS-VALIDATION TREE
 
@@ -47,119 +44,35 @@ Label = kfoldPredict(CVMdl);
 
 % --- Misclassification rate ---
 missClassRate = kfoldLoss(CVMdl);
-fprintf('5-fold CV loss: %.3f\n', missClassRate);
 
 % --- Class-wise misclassification ---
 [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
-fprintf('Standard CV - Majority class misclassification: %.3f\n', missMajority);
-fprintf('Standard CV - Minority class misclassification: %.3f\n', missMinority);
 
 
 %% CROSS-VALIDATION TREE WITH WEIGHTS
 
-% --- Compute class frequencies ---
-[classNames, ~, idxClass] = unique(T_ResultsVariable);      % classNames is a cell array of labels
-nClasses = numel(classNames);                               % number of classes
-counts   = accumarray(idxClass, 1);                         % count per class
-nTotal   = numel(T_ResultsVariable);                        % total number of observations
-
-% --- Compute per-class weights: w_c ∝ 1/counts(c) ---
-% Normalize so that sum of all sample weights = nTotal
-invFreq   = 1 ./ counts;                                    % inverse frequency per class
-normFactor = nTotal / sum(counts .* invFreq);
-classWeights = normFactor .* invFreq;                       % vector of length nClasses
-
-% --- Build a weight vector W matching observations ---
-W = classWeights(idxClass);                 % maps each sample to its class weight
-
-% ------------------ 2) WEIGHTED TREE ------------------ 
-WeightCVMdl = fitctree( ...
-    T_Data, T_ResultsVariable, ...
-    'KFold',           5, ...
-    'Weights',         W, ...
-    'CategoricalPredictors', {'Genotype'}, ...
-    'MinParentSize',   3);
+WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, 5, {'Genotype'}, 3);
 
 % ------------------ 3) MODEL'S RESULTS ------------------------
-wtLabel  = kfoldPredict(WeightCVMdl);
+[wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
 
 % --- Misclassification rate ---
 missClassRateWeight  = kfoldLoss(WeightCVMdl); 
-fprintf('Weighted   5-fold CV loss: %.3f\n', missClassRateWeight);
 
 % --- Class-wise misclassification ---
 [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
-fprintf('Weighted CV - Majority class misclassification: %.3f\n', missMajorityW);
-fprintf('Weighted CV - Minority class misclassification: %.3f\n', missMinorityW);
 
 
 %% CROSS-VALIDATION TREE WITH OVERSAMPLING
 
-% --- Create 5-fold partition ---
-cv = cvpartition(T_ResultsVariable, 'KFold', 5);
-
-% --- Initialize prediction vector ---
-OSLabels = strings(size(T_ResultsVariable));
-
-for i = 1:cv.NumTestSets
-    % Indices for training and testing
-    trainIdx = training(cv, i);
-    testIdx  = test(cv, i);
-
-    % Split data
-    XTrain = T_Data(trainIdx,:);
-    YTrain = T_ResultsVariable(trainIdx);
-    XTest = T_Data(testIdx,:);
-    YTest = T_ResultsVariable(testIdx);
-
-    % ------------------ OVERSAMPLING -------------------
-    % Find class counts
-    classNames = unique(YTrain);
-    counts = groupcounts(YTrain);
-    maxCount = max(counts);
-
-    XBalanced = XTrain;
-    YBalanced = YTrain;
-
-    for j = 1:numel(classNames)
-        cls = classNames(j);
-        idx = find(strcmp(YTrain, cls));
-
-        % Compute how many more samples needed
-        nToAdd = maxCount - numel(idx);
-
-        if nToAdd > 0
-            % Randomly sample with replacement
-            sampledIdx = datasample(idx, nToAdd, 'Replace', true);
-            XBalanced = [XBalanced; XTrain(sampledIdx,:)];
-            YBalanced = [YBalanced; YTrain(sampledIdx)];
-        end
-    end
-
-    % ------------------ Train model --------------------
-    OSCVMdl = fitctree(...
-        XBalanced, YBalanced, ...
-        'CategoricalPredictors', {'Genotype'}, ...
-        'MinParentSize', 3);
-
-    % ------------------ Predict ------------------------
-    YPred = predict(OSCVMdl, XTest);
-
-    % Save predictions
-    OSLabels(testIdx) = YPred;
-end
-
 % ------------------ MODEL'S RESULTS ------------------------
-OSLabels = cellstr(OSLabels);
+[OSLabels, OSScores] = kfoldPredictOS (T_Data, T_ResultsVariable, 5, {'Genotype'}, 3);
 
 % --- Misclassification rate ---
 missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
-fprintf('Oversampled CV Misclassification Rate: %.3f\n', missClassRateOS);
 
 % --- Class-wise misclassification ---
 [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
-fprintf('Oversampled CV - Majority class misclassification: %.3f\n', missMajorityOS);
-fprintf('Oversampled CV - Minority class misclassification: %.3f\n', missMinorityOS);
 
 
 %% TRAIN THE MODEL
@@ -197,43 +110,86 @@ nTotal = numel(T_ResultsVariable);
 nIncorrect = sum(~strcmp(DeathFUS, T_ResultsVariable));
 
 testError = nIncorrect / nTotal;
-fprintf('Test Error (on training data): %.3f\n', testError);
 
 % --- Class-wise misclassification ---
 [missMajorityFinal, missMinorityFinal] = classwiseMisclassification(T_ResultsVariable, DeathFUS, majorityClass, minorityClass);
-fprintf('Final Model - Majority class misclassification: %.3f\n', missMajorityFinal);
-fprintf('Final Model - Minority class misclassification: %.3f\n', missMinorityFinal);
 
 
 %% CONFUSION CHART
 
 trueLabels = string(T_ResultsVariable);
-Label = string(Label);
-wtLabel = string(wtLabel);
-OSLabels = string(OSLabels);
-trainingDatasetPredictions = string(DeathFUS);
+ch_Label = string(Label);
+ch_wtLabel = string(wtLabel);
+ch_OSLabels = string(OSLabels);
+ch_trainingDatasetPredictions = string(DeathFUS);
 
 figure('Units', 'normalized', 'Position', [0.1 0.3 0.8 0.4]);
 set(gca,'DataAspectRatio',[6 .5 0.2]);
 sgtitle ('Confusion Matrices per model');
 
 subplot(1,4,1);
-confusionchart(trueLabels, Label);
+confusionchart(trueLabels, ch_Label);
 title('Standard 5-fold cross-validation');
 
 subplot(1,4,2);
-confusionchart(trueLabels, wtLabel);
+confusionchart(trueLabels, ch_wtLabel);
 title('Weighted 5-f cv');
 
 subplot(1,4,3);
-confusionchart(trueLabels, OSLabels);
+confusionchart(trueLabels, ch_OSLabels);
 title('Oversampled 5-f cv');
 
 subplot(1,4,4);
-confusionchart(trueLabels, trainingDatasetPredictions);
+confusionchart(trueLabels, ch_trainingDatasetPredictions);
 title('Final Model (with Training Data)');
 
 savefig(fullfile(savePath, 'ConfusionCharts.fig'));
+
+
+%% ROC CURVES AND AUC COMPUTATION
+
+% === Convert ground truth to binary ===
+% Positive class is the minority class
+trueBinary = strcmp(T_ResultsVariable, minorityClass{1});
+
+% === Get score outputs for each model ===
+
+% 1. Standard CV
+[Label, Score] = kfoldPredict(CVMdl);
+[~,~,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
+
+% 2. Weighted CV
+[wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
+[~,~,~,auc2] = perfcurve(trueBinary, wtScore(:,2), 1);
+
+% 3. Oversampled CV
+
+[~,~,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
+
+
+% 4. Final model (training data)
+[DeathFUS, finalScores] = predict(Mdl, T_Data);
+[~,~,~,auc4] = perfcurve(trueBinary, finalScores(:,2), 1);
+
+% === Plot all ROC curves ===
+figure; hold on;
+plot([0 1], [0 1], 'k--', 'LineWidth', 1.2);  % Diagonal
+[fp1,tp1] = perfcurve(trueBinary, Score(:,2), 1); plot(fp1,tp1, 'LineWidth', 2);
+[fp2,tp2] = perfcurve(trueBinary, wtScore(:,2), 1); plot(fp2,tp2, 'LineWidth', 2);
+[fp3,tp3] = perfcurve(trueBinary, OSScores(:,2), 1); plot(fp3,tp3, 'LineWidth', 2);
+[fp4,tp4] = perfcurve(trueBinary, finalScores(:,2), 1); plot(fp4,tp4, 'LineWidth', 2);
+
+legend({ ...
+    sprintf('Standard (AUC = %.3f)', auc1), ...
+    sprintf('Weighted (AUC = %.3f)', auc2), ...
+    sprintf('Oversampled (AUC = %.3f)', auc3), ...
+    sprintf('Final (AUC = %.3f)', auc4)}, ...
+    'Location', 'SouthEast');
+
+xlabel('False Positive Rate'); ylabel('True Positive Rate');
+title('ROC Curves for All Models');
+grid on;
+savefig(fullfile(savePath, 'ROC_Curves.fig'));
 
 
 %% CREATE AN EXCEL FILE 
@@ -244,11 +200,14 @@ Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Final Model'};
 OverallError = [missClassRate; missClassRateWeight; missClassRateOS; testError];
 MajorityError = [missMajority; missMajorityW; missMajorityOS; missMajorityFinal];
 MinorityError = [missMinority; missMinorityW; missMinorityOS; missMinorityFinal];
+AUC = [auc1; auc2; auc3; auc4];
 
-ErrorSummary = table(Models, OverallError, MajorityError, MinorityError);
+ErrorSummary = table(Models, OverallError, MajorityError, MinorityError, AUC);
+fprintf('Summary_Table: %.3f\n', ErrorSummary);
 
 % Prepare predictor importance table
 PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
+fprintf('PredictorImportance_Table: %.3f\n', ErrorSummary);
 
 % Write to Excel
 excelFileName = fullfile(savePath, 'Model_Errors_and_Importance.xlsx');
@@ -258,5 +217,3 @@ writetable(ErrorSummary, excelFileName, 'Sheet', 'Errors');
 
 % Write predictor importance to sheet2
 writetable(PredictorImportanceTable, excelFileName, 'Sheet', 'PredictorImportance');
-
-fprintf('Summary Excel file saved to %s\n', excelFileName);
