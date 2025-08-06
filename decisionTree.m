@@ -3,19 +3,22 @@ addpath (genpath('./utils'));
 addpath ('./requirements');
 savePath = './results/';
 
+% --------- Read instructions JSON archive -----------
+json = readstruct("data/instructionsDecisionTree.json");
+
 
 %% TRAINING DATASET
 
 %--------- Load data ---------
-fileName = char("FUS_test6.xlsx");
+fileName = char(json.inputDataSelection.fileName);
 T_Original = readtable(['./data/' fileName]);
 
 % -------- Remove rows with NaN --------
 T_Original = rmmissing(T_Original);  % Remove rows that contain at least one NaN
 
 % -------- Select data to use (columns with string or numerical criteria) ---------------
-target_columns = [1,22];
-ignore_columns = [2,3];
+target_columns = json.inputDataSelection.columnCriteria.target_columns;
+ignore_columns = json.inputDataSelection.columnCriteria.ignore_columns;
 T_Data = selectColumns (T_Original, target_columns, ignore_columns);
 T_ResultsVariable = T_Original.Death;
 
@@ -81,7 +84,7 @@ Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {'Genotype'},
 
 % VIEW THE TREE
 view(Mdl,'Mode','graph');
-savefig(fullfile(savePath, 'DecisionTree.fig'));
+savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
 
 % PREDICTORS' IMPORTANCE
 imp = predictorImportance(Mdl);
@@ -99,7 +102,7 @@ ax.XTickLabel = predictorNames;
 ax.XTickLabelRotation = 45;
 ax.TickLabelInterpreter = 'none';
 
-savefig(fullfile(savePath, 'PredictorImportance.fig'));
+savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
 
 %% TEST DATASET
 
@@ -143,7 +146,7 @@ subplot(1,4,4);
 confusionchart(trueLabels, ch_trainingDatasetPredictions);
 title('Final Model (with Training Data)');
 
-savefig(fullfile(savePath, 'ConfusionCharts.fig'));
+savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
 
 
 %% ROC CURVES AND AUC COMPUTATION
@@ -189,7 +192,7 @@ legend({ ...
 xlabel('False Positive Rate'); ylabel('True Positive Rate');
 title('ROC Curves for All Models');
 grid on;
-savefig(fullfile(savePath, 'ROC_Curves.fig'));
+savefig(fullfile(savePath, char(json.outputFileNames.ROC_Curves)));
 
 
 %% CREATE AN EXCEL FILE 
@@ -210,7 +213,7 @@ PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predi
 fprintf('PredictorImportance_Table: %.3f\n', ErrorSummary);
 
 % Write to Excel
-excelFileName = fullfile(savePath, 'Model_Errors_and_Importance.xlsx');
+excelFileName = fullfile(savePath, char(json.outputFileNames.excelFileName));
 
 % Write error summary to sheet1
 writetable(ErrorSummary, excelFileName, 'Sheet', 'Errors');
