@@ -2,6 +2,8 @@
 function [missMajority, missMinority] = classwiseMisclassification(trueLabels, predictedLabels, majorityClass, minorityClass)
     trueLabels = string(trueLabels);
     predictedLabels = string(predictedLabels);
+    majorityClass = string(majorityClass);
+    minorityClass = string(minorityClass);
 
     majorityMask = (trueLabels == majorityClass);
     majorityTotal = sum(majorityMask);

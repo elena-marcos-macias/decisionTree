@@ -132,7 +132,7 @@ ch_OSLabels = string(OSLabels);
 ch_trainingDatasetPredictions = string(DeathFUS);
 
 figure('Units', 'normalized', 'Position', [0.1 0.3 0.8 0.4]);
-set(gca,'DataAspectRatio',[4 4 0.2]);
+set(gca,'DataAspectRatio',[6 .5 0.2]);
 sgtitle ('Confusion Matrices per model');
 
 subplot(1,4,1);
@@ -181,13 +181,14 @@ trueBinary = string(T_ResultsVariable) == minorityClass{1};
 
 % === Plot all ROC curves ===
 figure; hold on;
-plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+plot([0 1], [0 1], 'k--', 'LineWidth', 1.2);  % Diagonal
 [fp1,tp1] = perfcurve(trueBinary, Score(:,2), 1); plot(fp1,tp1, 'LineWidth', 2);
 [fp2,tp2] = perfcurve(trueBinary, wtScore(:,2), 1); plot(fp2,tp2, 'LineWidth', 2);
 [fp3,tp3] = perfcurve(trueBinary, OSScores(:,2), 1); plot(fp3,tp3, 'LineWidth', 2);
 [fp4,tp4] = perfcurve(trueBinary, finalScores(:,2), 1); plot(fp4,tp4, 'LineWidth', 2);
 
 legend({ ...
+    sprintf('Diagonal') ...
     sprintf('cvStandard (AUC = %.3f)', auc1), ...
     sprintf('cvWeighted (AUC = %.3f)', auc2), ...
     sprintf('cvOversampled (AUC = %.3f)', auc3), ...
@@ -211,12 +212,12 @@ MinorityError = [missMinority; missMinorityW; missMinorityOS; missMinorityFinal]
 AUC = [auc1; auc2; auc3; auc4];
 
 ErrorSummary = table(Models, OverallError, MajorityError, MinorityError, AUC);
-disp('Summary_Table:');
+disp('Summary_Table: %.3f\n');
 disp(ErrorSummary);
 
 % Prepare predictor importance table
 PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
-disp('PredictorImportance_Table:');
+disp('PredictorImportance_Table: %.3f\n');
 disp(PredictorImportanceTable);
 
 % Write to Excel
