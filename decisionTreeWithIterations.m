@@ -1,0 +1,233 @@
+%--------- Add function path and set save path ----------
+addpath(genpath('./data'));
+addpath (genpath('./utils'));
+addpath ('./requirements');
+savePath = './results/';
+
+% --------- Read instructions JSON archive -----------
+json = readstruct("data/instructionsDecisionTree.json");
+
+
+%% TRAINING DATASET
+
+%--------- Load data ---------
+fileName = char(json.inputDataSelection.fileName);
+T_Original = readtable(['./data/' fileName]);
+
+% -------- Remove rows with NaN --------
+T_Original = rmmissing(T_Original);  % Remove rows that contain at least one NaN
+
+% -------- Select data to use (columns with string or numerical criteria) ---------------
+target_columns = json.inputDataSelection.columnCriteria.target_columns;
+ignore_columns = json.inputDataSelection.columnCriteria.ignore_columns;
+
+T_Data = selectColumns (T_Original, target_columns, ignore_columns);
+T_ResultsVariable = T_Original.Death;
+
+% --------- Categorical variable -------
+catVariable = char(json.inputDataSelection.catVariable);
+
+% --------- Identify minority and majority classes -------------
+[classNames, ~, idxClass] = unique(T_ResultsVariable);
+counts = accumarray(idxClass, 1);
+
+[~, majorityIdx] = max(counts);
+[~, minorityIdx] = min(counts);
+
+majorityClass = string(classNames(majorityIdx));
+minorityClass = string(classNames(minorityIdx));
+
+
+
+%% CROSS-VALIDATION METHODS
+% Number of repetitions
+nRuns = 100;
+
+% Preallocate result matrices: rows = repetitions, columns = metrics
+errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
+modelNames = {'Standard', 'Weighted', 'Oversampled'};
+
+for run = 1:nRuns
+    fprintf('Running iteration %d of %d...\n', run, nRuns);
+
+    % ----- 1. Standard CV Tree -----
+    CVMdl = fitctree( ...
+        T_Data, T_ResultsVariable, ...
+        'KFold',           5, ...
+        'CategoricalPredictors', {catVariable}, ...
+        'MinParentSize',   3);
+
+    [Label, Score] = kfoldPredict(CVMdl);
+    missClassRate = kfoldLoss(CVMdl);
+    [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
+    trueBinary = string(T_ResultsVariable) == minorityClass{1};
+    [~,~,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
+    errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
+
+    % ----- 2. Weighted CV Tree -----
+    WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, 5, {catVariable}, 3);
+    [wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
+    missClassRateWeight = kfoldLoss(WeightCVMdl);
+    [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
+    [~,~,~,auc2] = perfcurve(trueBinary, wtScore(:,2), 1);
+    errorResults(run,:,2) = [missClassRateWeight, missMajorityW, missMinorityW, auc2];
+
+    % ----- 3. Oversampled CV Tree -----
+    [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, 5, {catVariable}, 3);
+    missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
+    [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
+    [~,~,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
+    errorResults(run,:,3) = [missClassRateOS, missMajorityOS, missMinorityOS, auc3];
+end
+
+metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
+
+for m = 1:3
+    fprintf('\nResults for %s CV:\n', modelNames{m});
+    for k = 1:4
+        meanVal = mean(errorResults(:,k,m));
+        stdVal = std(errorResults(:,k,m));
+        fprintf('%s: Mean = %.4f, Std = %.4f\n', metrics{k}, meanVal, stdVal);
+    end
+end
+
+%% Ploting
+% Labels
+metricLabels = {'Overall Error', 'Majority Error', 'Minority Error', 'AUC'};
+modelLabels = {'Standard', 'Weighted', 'Oversampled'};
+
+% Settings
+spacing = 10;           % space between groups
+meanToRunGap = 1;       % artificial space between mean and run bars
+runBarWidth = 0.8;
+meanBarWidth = 1.5;
+
+for k = 1:4
+    figure;
+
+    data = squeeze(errorResults(:, k, :))';  % size = (3 x 30)
+
+    x = [];
+    y = [];
+    widths = [];
+    colors = [];
+    errorbarX = [];
+    errorbarY = [];
+    errorbarStd = [];
+
+    currentX = 1;  % running x position
+
+    for m = 1:3
+        % --- Mean bar ---
+        mu = mean(data(m, :));
+        sigma = std(data(m, :));
+
+        x = [x, currentX];
+        y = [y, mu];
+        widths = [widths, meanBarWidth];
+        colors = [colors; [0.2 0.6 0.9]];  % blue
+
+        errorbarX = [errorbarX, currentX];
+        errorbarY = [errorbarY, mu];
+        errorbarStd = [errorbarStd, sigma];
+
+        % --- Run bars ---
+        runStartX = currentX + 1 + meanToRunGap;
+        runXs = runStartX : runStartX + nRuns - 1;
+        runYs = data(m, :);
+
+        x = [x, runXs];
+        y = [y, runYs];
+        widths = [widths, repmat(runBarWidth, 1, nRuns)];
+        colors = [colors; repmat([0.7 0.7 0.7], nRuns, 1)];
+
+        % Update currentX for next group
+        currentX = runXs(end) + spacing;
+    end
+
+    % --- Plotting ---
+    for i = 1:length(x)
+        bar(x(i), y(i), widths(i), 'FaceColor', colors(i,:), 'EdgeColor', 'none');
+        hold on;
+    end
+
+    % Error bars for means
+    errorbar(errorbarX, errorbarY, errorbarStd, ...
+        'k', 'LineStyle', 'none', 'LineWidth', 1.2, 'CapSize', 6);
+
+    % X-ticks at group centers
+    groupCenters = errorbarX + (nRuns + meanToRunGap) / 2;
+    xticks(groupCenters);
+    xticklabels(modelLabels);
+
+    ylabel(metricLabels{k});
+    title(['Distribution of ', metricLabels{k}, ' Across 30 Runs (Grouped by Model)']);
+    grid on;
+    xlim([0, max(x)+1]);
+end
+
+
+%% TRAIN THE MODEL
+% This section creates a Classification Tree model, trained with the whole
+% dataset informing us of the importance of the predictor variables. It
+% displays a decision tree graph and a predictors' importance bar graph and 
+% table
+
+% ------------------ 1) TREE ------------------ 
+%Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
+
+%% To visualize the tree
+%view(Mdl,'Mode','graph'); 
+%savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
+%
+%% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
+%imp = predictorImportance(Mdl);
+%predictorNames = Mdl.PredictorNames;
+%
+%% To visualize the importance as a graph
+%figure;
+%bar(imp);
+%title('Predictor Importance Estimates');
+%ylabel('Importance');
+%xlabel('Predictors');
+%
+%ax = gca;
+%ax.XTick = 1:numel(predictorNames);
+%ax.XTickLabel = predictorNames;
+%ax.XTickLabelRotation = 45;
+%ax.TickLabelInterpreter = 'none';
+%
+%savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
+%
+%% To visualize the importance table
+%PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
+%disp('PredictorImportance_Table:');
+%disp(PredictorImportanceTable);
+%
+%
+%
+%% TEST1 - TRAINING DATASET
+%[test1Labels, test1Scores] = predict(Mdl, T_Data);
+
+
+
+%% QUALITY METRICS TABLE
+% Prepare summary table for errors
+%Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
+%Metrics = {'OverallError'; 'MajorityError'; 'MinorityError'; 'AUC'};
+%OverallError = [missClassRate; missClassRateWeight; missClassRateOS; missClassRateTest1];
+%MajorityError = [missMajority; missMajorityW; missMajorityOS; missMajorityFinal];
+%MinorityError = [missMinority; missMinorityW; missMinorityOS; missMinorityFinal];
+%AUC = [auc1; auc2; auc3; auc4];
+%Matrix = [OverallError, MajorityError, MinorityError, AUC];
+%PlotMatrix = [OverallError'; MajorityError'; MinorityError'; AUC'];
+%
+%ErrorTable = array2table(Matrix,...
+%    'VariableNames', Metrics,...
+%    'RowNames', Models);
+%disp('Error_Table:');
+%disp(ErrorTable);
+%
+%PlotTable = array2table(PlotMatrix,...
+%    'VariableNames', Models,...
+%    'RowNames', Metrics);
