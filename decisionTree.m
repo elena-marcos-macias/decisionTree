@@ -167,16 +167,23 @@ trueBinary = string(T_ResultsVariable) == minorityClass{1};
 % === QUALITY METRICS TABLE ===
 % Prepare summary table for errors
 Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
+Metrics = {'OverallError'; 'MajorityError'; 'MinorityError'; 'AUC'};
 OverallError = [missClassRate; missClassRateWeight; missClassRateOS; missClassRateTest1];
 MajorityError = [missMajority; missMajorityW; missMajorityOS; missMajorityFinal];
 MinorityError = [missMinority; missMinorityW; missMinorityOS; missMinorityFinal];
 AUC = [auc1; auc2; auc3; auc4];
+Matrix = [OverallError, MajorityError, MinorityError, AUC];
+PlotMatrix = [OverallError'; MajorityError'; MinorityError'; AUC'];
 
-ErrorSummary = table(Models, OverallError, MajorityError, MinorityError, AUC);
-disp('Summary_Table:');
-disp(ErrorSummary);
+ErrorTable = array2table(Matrix,...
+    'VariableNames', Metrics,...
+    'RowNames', Models);
+disp('Error_Table:');
+disp(ErrorTable);
 
-
+PlotTable = array2table(PlotMatrix,...
+    'VariableNames', Models,...
+    'RowNames', Metrics);
 
 %% CONFUSION CHART
 trueLabels = string(T_ResultsVariable);
@@ -185,27 +192,28 @@ ch_wtLabel = string(wtLabel);
 ch_OSLabels = string(OSLabels);
 ch_trainingDatasetPredictions = string(test1Labels);
 
+
 figure('Units', 'normalized', 'Position', [0.1 0.3 0.8 0.4]);
-set(gca,'DataAspectRatio',[4 4 0.2]);
-sgtitle ('Confusion Matrices per model');
+sgtitle('Confusion Matrices per model');
 
 subplot(1,4,1);
 confusionchart(trueLabels, ch_Label);
-title('Standard 5-fold cross-validation');
+title('Standard 5-fold');
 
 subplot(1,4,2);
 confusionchart(trueLabels, ch_wtLabel);
-title('Weighted 5-f cv');
+title('Weighted 5-fold');
 
 subplot(1,4,3);
 confusionchart(trueLabels, ch_OSLabels);
-title('Oversampled 5-f cv');
+title('Oversampled 5-fold');
 
 subplot(1,4,4);
 confusionchart(trueLabels, ch_trainingDatasetPredictions);
-title('Final Model (with Training Data)');
+title('Final Model');
 
 savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
+
 
 
 %% ROC CURVES
@@ -233,7 +241,7 @@ savefig(fullfile(savePath, char(json.outputFileNames.ROC_Curves)));
 excelFileName = fullfile(savePath, char(json.outputFileNames.excelFileName));
 
 % Write error summary to sheet1
-writetable(ErrorSummary, excelFileName, 'Sheet', 'Errors');
+writetable(ErrorTable, excelFileName, 'Sheet', 'Errors');
 
 % Write predictor importance to sheet2
 writetable(PredictorImportanceTable, excelFileName, 'Sheet', 'PredictorImportance');
