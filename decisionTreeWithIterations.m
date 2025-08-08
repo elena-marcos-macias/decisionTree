@@ -290,12 +290,6 @@ disp(ErrorTable);
 
 
 %% CONFUSION CHART OF HISTOGRAMS
-cm_labels = { ...
-    'True Majority (1,1)', ...
-    'False Minority (1,2)', ...
-    'False Majority (2,1)', ...
-    'True Minority (2,2)' };
-
 numBins = 10;
 
 for m = 1:3  % loop over CV methods
@@ -313,19 +307,17 @@ for m = 1:3  % loop over CV methods
         end
         values = squeeze(confusionmatResults(row, col, :, m));
         
-        % Bin manually so we can read bin edges & heights reliably
         [binCounts, binEdges] = histcounts(values, numBins);
         maxX = max(maxX, max(binEdges));
         maxY = max(maxY, max(binCounts));
     end
     
-    % --- Step 2: Plot ---
+    % --- Step 2: Plot histograms ---
     figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
     
     for pos = 1:4
         subplot(2, 2, pos);
         
-        % Map pos index to (row, col)
         switch pos
             case 1, row = 1; col = 1;
             case 2, row = 1; col = 2;
@@ -341,19 +333,40 @@ for m = 1:3  % loop over CV methods
         else
             faceColor = [0.85 0.33 0.1];
         end
-        
+               
         histogram(values, numBins, 'FaceColor', faceColor, 'EdgeColor', 'k');
-        title(cm_labels{pos}, 'FontSize', 10, 'FontWeight', 'bold');
-        xlabel('Count'); ylabel('Frequency');
         grid on;
         
-        % Apply consistent per-figure axis limits
         xlim([0, maxX]);
         ylim([0, maxY]);
+        
+        % Solo etiquetas específicas, ninguna otra
+        switch pos
+            case 1
+                ylabel(majorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+            case 3
+                ylabel(minorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+                xlabel(majorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+            case 4
+                xlabel(minorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+            otherwise
+                % Nada en xlabel ni ylabel para pos=2
+                xlabel('');
+                ylabel('');
+        end
     end
     
+    % Add labels to the entire figure for "Actual" and "Predicted"
+    han = axes(gcf, 'visible', 'off'); 
+    han.XLabel.Visible = 'on';
+    han.YLabel.Visible = 'on';
+    ylabel(han, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold', 'Position', [-0.1 0.5 0]);
+    xlabel(han, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold', 'Position', [0.5 -0.1 -0.1]);
+    
     sgtitle(['Confusion Matrix Cell Distributions - ' modelNames{m}], 'FontSize', 14);
+    
 end
+
 
 
 %% CONFUSION CHART
