@@ -289,7 +289,7 @@ disp(ErrorTable);
 
 
 
-%% CONFUSION CHART OF HISTOGRAMS
+%% CONFUSION CHART OF HISTOGRAMS USING tiledlayout
 numBins = 10;
 
 for m = 1:3  % loop over CV methods
@@ -312,11 +312,15 @@ for m = 1:3  % loop over CV methods
         maxY = max(maxY, max(binCounts));
     end
     
-    % --- Step 2: Plot histograms ---
-    figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
+    % --- Step 2: Create tiled layout ---
+    fig = figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
+    t = tiledlayout(fig, 2, 2, ...
+        'TileSpacing', 'compact', ...
+        'Padding', 'compact');  % control spacing
     
+    % --- Step 3: Plot histograms ---
     for pos = 1:4
-        subplot(2, 2, pos);
+        ax = nexttile(t, pos);  % go to the correct tile
         
         switch pos
             case 1, row = 1; col = 1;
@@ -333,40 +337,41 @@ for m = 1:3  % loop over CV methods
         else
             faceColor = [0.85 0.33 0.1];
         end
-               
-        histogram(values, numBins, 'FaceColor', faceColor, 'EdgeColor', 'k');
-        grid on;
         
-        xlim([0, maxX]);
-        ylim([0, maxY]);
+        histogram(ax, values, numBins, 'FaceColor', faceColor, 'EdgeColor', 'k');
+        axis(ax, 'square');
+        grid(ax, 'on');
         
-        % Solo etiquetas específicas, ninguna otra
+        xlim(ax, [0, maxX]);
+        ylim(ax, [0, maxY]);
+        
+        % Labels
         switch pos
             case 1
-                ylabel(majorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+                ylabel(ax, majorityClass, 'FontSize', 14, 'FontWeight', 'bold');
             case 3
-                ylabel(minorityClass, 'FontSize', 14, 'FontWeight', 'bold');
-                xlabel(majorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+                ylabel(ax, minorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+                xlabel(ax, majorityClass, 'FontSize', 14, 'FontWeight', 'bold');
             case 4
-                xlabel(minorityClass, 'FontSize', 14, 'FontWeight', 'bold');
+                xlabel(ax, minorityClass, 'FontSize', 14, 'FontWeight', 'bold');
             otherwise
-                % Nada en xlabel ni ylabel para pos=2
-                xlabel('');
-                ylabel('');
+                xlabel(ax, '');
+                ylabel(ax, '');
         end
     end
     
-    % Add labels to the entire figure for "Actual" and "Predicted"
-    han = axes(gcf, 'visible', 'off'); 
-    han.XLabel.Visible = 'on';
-    han.YLabel.Visible = 'on';
-    ylabel(han, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold', 'Position', [-0.1 0.5 0]);
-    xlabel(han, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold', 'Position', [0.5 -0.1 -0.1]);
+    % --- Step 4: Add global X/Y labels to the tiledlayout ---
+    xlabel(t, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
+    ylabel(t, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
     
-    sgtitle(['Confusion Matrix Cell Distributions - ' modelNames{m}], 'FontSize', 14);
-    
-end
+    % --- Step 5: Figure's title ---
+    title(t, ['Confusion Matrix Cell Distributions - ' modelNames{m}], ...
+        'FontSize', 14);
 
+    % --- Step 6: Save the figure ---
+    filename = ['Confusion_Histograms_' modelNames{m} '.fig'];
+
+end
 
 
 %% CONFUSION CHART
@@ -397,5 +402,3 @@ confusionchart(trueLabels, ch_trainingDatasetPredictions);
 title('Final Model');
 
 savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
-
-

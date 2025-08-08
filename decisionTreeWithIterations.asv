@@ -316,8 +316,8 @@ for m = 1:3  % loop over CV methods
     figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
     
     for pos = 1:4
-        subplot(2, 2, pos);
-        
+        hSub = subplot(2, 2, pos);
+   
         switch pos
             case 1, row = 1; col = 1;
             case 2, row = 1; col = 2;
@@ -335,11 +335,13 @@ for m = 1:3  % loop over CV methods
         end
                
         histogram(values, numBins, 'FaceColor', faceColor, 'EdgeColor', 'k');
+        axis square;
         grid on;
-        
+              
         xlim([0, maxX]);
         ylim([0, maxY]);
-        
+
+               
         % Solo etiquetas específicas, ninguna otra
         switch pos
             case 1
@@ -355,17 +357,32 @@ for m = 1:3  % loop over CV methods
                 ylabel('');
         end
     end
-    
-    % Add labels to the entire figure for "Actual" and "Predicted"
-    han = axes(gcf, 'visible', 'off'); 
-    han.XLabel.Visible = 'on';
-    han.YLabel.Visible = 'on';
-    ylabel(han, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold', 'Position', [-0.1 0.5 0]);
-    xlabel(han, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold', 'Position', [0.5 -0.1 -0.1]);
-    
-    sgtitle(['Confusion Matrix Cell Distributions - ' modelNames{m}], 'FontSize', 14);
-    
+
+    % --- Step 3: Plot squares ---
+    % Get subplot positions
+subPos = zeros(4, 4); % [left bottom width height] for each subplot
+for pos = 1:4
+    ax = subplot(2, 2, pos);
+    subPos(pos, :) = get(ax, 'Position');
 end
+
+% Compute bounding box of all subplots
+left   = min(subPos(:,1));
+bottom = min(subPos(:,2));
+right  = max(subPos(:,1) + subPos(:,3));
+top    = max(subPos(:,2) + subPos(:,4));
+
+width  = right - left;
+height = top - bottom;
+
+% Draw big outer rectangle
+annotation('rectangle', [left bottom width height], 'LineWidth', 2, 'Color', 'k');
+
+% Draw vertical divider
+annotation('line', [left + width/2, left + width/2], [bottom, bottom + height], 'LineWidth', 1.5, 'Color', 'k');
+
+% Draw horizontal divider
+annotation('line', [left, left + width], [bottom + height/2, bottom + height/2], 'LineWidth', 1.5, 'Color', 'k');
 
 
 
