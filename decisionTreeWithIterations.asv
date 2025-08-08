@@ -39,6 +39,45 @@ minorityClass = string(classNames(minorityIdx));
 
 
 
+%% TRAIN THE DECISION TREE - TRAINING DATASET
+% This section creates a Classification Tree model, trained with the whole
+% dataset informing us of the importance of the predictor variables. It
+% displays a decision tree graph and a predictors' importance bar graph and 
+% table
+
+% ------------------ 1) TREE ------------------ 
+Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
+
+%To visualize the tree
+view(Mdl,'Mode','graph'); 
+savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
+
+% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
+imp = predictorImportance(Mdl);
+predictorNames = Mdl.PredictorNames;
+
+%To visualize the importance as a graph
+figure;
+bar(imp);
+title('Predictor Importance Estimates');
+ylabel('Importance');
+xlabel('Predictors');
+
+ax = gca;
+ax.XTick = 1:numel(predictorNames);
+ax.XTickLabel = predictorNames;
+ax.XTickLabelRotation = 45;
+ax.TickLabelInterpreter = 'none';
+
+savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
+
+%To visualize the importance table
+PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
+disp('PredictorImportance_Table:');
+disp(PredictorImportanceTable);
+
+
+
 %% CROSS-VALIDATION METHODS
 % To validate the model, and since we don't have a different dataset from
 % the training dataset to try it with, we are going to apply
@@ -48,10 +87,14 @@ minorityClass = string(classNames(minorityIdx));
 % classes. 3. Oversampled K-fold to manage imbalance.
 
 % Numer of folds for K-fold
-nFolds = K
+nFolds = 5;
 
 % Number of repetitions
 nRuns = 1000;
+
+% Create a logical vector for those results' labels that coincide with the
+% minority class, in this case 'Dead'
+trueBinary = string(T_ResultsVariable) == minorityClass{1};
 
 % Preallocate result matrices: rows = repetitions, columns = metrics
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
@@ -63,19 +106,18 @@ for run = 1:nRuns
     % ----- 1. Standard CV Tree -----
     CVMdl = fitctree( ...
         T_Data, T_ResultsVariable, ...
-        'KFold',           5, ...
+        'KFold',           nFolds, ...
         'CategoricalPredictors', {catVariable}, ...
         'MinParentSize',   3);
 
     [Label, Score] = kfoldPredict(CVMdl);
     missClassRate = kfoldLoss(CVMdl);
     [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
-    trueBinary = string(T_ResultsVariable) == minorityClass{1};
     [~,~,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
     errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
 
     % ----- 2. Weighted CV Tree -----
-    WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, 5, {catVariable}, 3);
+    WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
     [wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
     missClassRateWeight = kfoldLoss(WeightCVMdl);
     [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
@@ -83,7 +125,7 @@ for run = 1:nRuns
     errorResults(run,:,2) = [missClassRateWeight, missMajorityW, missMinorityW, auc2];
 
     % ----- 3. Oversampled CV Tree -----
-    [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, 5, {catVariable}, 3);
+    [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
     missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
     [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
     [~,~,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
@@ -172,67 +214,54 @@ savefig(fullfile(savePath, char(json.outputFileNames.crossValidationHistograms))
 
 
 
-%% TRAIN THE MODEL
-% This section creates a Classification Tree model, trained with the whole
-% dataset informing us of the importance of the predictor variables. It
-% displays a decision tree graph and a predictors' importance bar graph and 
-% table
-
-% ------------------ 1) TREE ------------------ 
-Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
-
-%To visualize the tree
-view(Mdl,'Mode','graph'); 
-savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
-
-% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
-imp = predictorImportance(Mdl);
-predictorNames = Mdl.PredictorNames;
-
-%To visualize the importance as a graph
-figure;
-bar(imp);
-title('Predictor Importance Estimates');
-ylabel('Importance');
-xlabel('Predictors');
-
-ax = gca;
-ax.XTick = 1:numel(predictorNames);
-ax.XTickLabel = predictorNames;
-ax.XTickLabelRotation = 45;
-ax.TickLabelInterpreter = 'none';
-
-savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
-
-%To visualize the importance table
-PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
-disp('PredictorImportance_Table:');
-disp(PredictorImportanceTable);
-
-
-
 %% TEST1 - TRAINING DATASET
-%[test1Labels, test1Scores] = predict(Mdl, T_Data);
+% Obtain the models' predictions for this dataset
+[test1Labels, test1Scores] = predict(Mdl, T_Data);
+
+% Obtain the missclassification rate for all subjects in the dataset
+missClassRateTest1 = sum(~strcmp(test1Labels, T_ResultsVariable)) / numel(T_ResultsVariable);
+
+% Obtain the missclassification rates for each class separately (minority
+% and majority)
+[missMajorityTest1, missMinorityTest1] = classwiseMisclassification(T_ResultsVariable, test1Labels, majorityClass, minorityClass);
+
+% Create a logical vector for those results' labels that coincide with the
+% minority class, in this case 'Dead'
+trueBinary = string(T_ResultsVariable) == minorityClass{1};
+
+% Obtain the AUC
+[~,~,~,aucTest1] = perfcurve(trueBinary, test1Scores(:,2), 1);
 
 
 
 %% QUALITY METRICS TABLE
 % Prepare summary table for errors
-%Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
-%Metrics = {'OverallError'; 'MajorityError'; 'MinorityError'; 'AUC'};
-%OverallError = [missClassRate; missClassRateWeight; missClassRateOS; missClassRateTest1];
-%MajorityError = [missMajority; missMajorityW; missMajorityOS; missMajorityFinal];
-%MinorityError = [missMinority; missMinorityW; missMinorityOS; missMinorityFinal];
-%AUC = [auc1; auc2; auc3; auc4];
-%Matrix = [OverallError, MajorityError, MinorityError, AUC];
-%PlotMatrix = [OverallError'; MajorityError'; MinorityError'; AUC'];
-%
-%ErrorTable = array2table(Matrix,...
-%    'VariableNames', Metrics,...
-%    'RowNames', Models);
-%disp('Error_Table:');
-%disp(ErrorTable);
-%
-%PlotTable = array2table(PlotMatrix,...
-%    'VariableNames', Models,...
-%    'RowNames', Metrics);
+Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
+Metrics = {'Mean_OverallError'; 'Mean_MajorityError'; 'Mean_MinorityError'; 'Mean_AUC'};
+
+means = squeeze(mean(errorResults,1))';
+meanOS = means(:,1);
+meanME = means(:,2);
+meanmE = means(:,3);
+meanAUC = means(:,4);
+
+STDs = squeeze(std(errorResults,1))';
+stdOS = STDs(:,1);
+stdME = STDs(:,2);
+stdmE = STDs(:,3);
+stdAUC = STDs(:,4);
+
+% Prepare columns
+clmOS = [meanOS;missClassRateTest1];
+clmME = [meanME;missMajorityTest1];
+clmmE = [meanmE;missMinorityTest1];
+clmAUC = [meanAUC;aucTest1];
+
+Matrix = [clmOS, clmME, clmmE, clmAUC];
+PlotMatrix = [clmOS'; clmME'; clmmE'; clmAUC'];
+
+ErrorTable = array2table(Matrix,...
+    'VariableNames', Metrics,...
+    'RowNames', Models);
+disp('Error_Table:');
+disp(ErrorTable);

@@ -92,6 +92,10 @@ nFolds = 5;
 % Number of repetitions
 nRuns = 1000;
 
+% Create a logical vector for those results' labels that coincide with the
+% minority class, in this case 'Dead'
+trueBinary = string(T_ResultsVariable) == minorityClass{1};
+
 % Preallocate result matrices: rows = repetitions, columns = metrics
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
@@ -109,7 +113,6 @@ for run = 1:nRuns
     [Label, Score] = kfoldPredict(CVMdl);
     missClassRate = kfoldLoss(CVMdl);
     [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
-    trueBinary = string(T_ResultsVariable) == minorityClass{1};
     [~,~,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
     errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
 
@@ -129,16 +132,16 @@ for run = 1:nRuns
     errorResults(run,:,3) = [missClassRateOS, missMajorityOS, missMinorityOS, auc3];
 end
 
-metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
-
-for m = 1:3
-    fprintf('\nResults for %s CV:\n', modelNames{m});
-    for k = 1:4
-        meanVal = mean(errorResults(:,k,m));
-        stdVal = std(errorResults(:,k,m));
-        fprintf('%s: Mean = %.4f, Std = %.4f\n', metrics{k}, meanVal, stdVal);
-    end
-end
+%metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
+%
+%for m = 1:3
+%    fprintf('\nResults for %s CV:\n', modelNames{m});
+%    for k = 1:4
+%        meanVal = mean(errorResults(:,k,m));
+%        stdVal = std(errorResults(:,k,m));
+%        fprintf('%s: Mean = %.4f, Std = %.4f\n', metrics{k}, meanVal, stdVal);
+%    end
+%end
 
 
 %% PLOT HISTOGRAMS PER CROSS-VALIDATION METHOD AND MEASURE
@@ -212,27 +215,53 @@ savefig(fullfile(savePath, char(json.outputFileNames.crossValidationHistograms))
 
 
 %% TEST1 - TRAINING DATASET
+% Obtain the models' predictions for this dataset
 [test1Labels, test1Scores] = predict(Mdl, T_Data);
+
+% Obtain the missclassification rate for all subjects in the dataset
+missClassRateTest1 = sum(~strcmp(test1Labels, T_ResultsVariable)) / numel(T_ResultsVariable);
+
+% Obtain the missclassification rates for each class separately (minority
+% and majority)
+[missMajorityTest1, missMinorityTest1] = classwiseMisclassification(T_ResultsVariable, test1Labels, majorityClass, minorityClass);
+
+% Create a logical vector for those results' labels that coincide with the
+% minority class, in this case 'Dead'
+trueBinary = string(T_ResultsVariable) == minorityClass{1};
+
+% Obtain the AUC
+[~,~,~,aucTest1] = perfcurve(trueBinary, test1Scores(:,2), 1);
 
 
 
 %% QUALITY METRICS TABLE
 % Prepare summary table for errors
-%Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
-%Metrics = {'OverallError'; 'MajorityError'; 'MinorityError'; 'AUC'};
-%OverallError = [missClassRate; missClassRateWeight; missClassRateOS; missClassRateTest1];
-%MajorityError = [missMajority; missMajorityW; missMajorityOS; missMajorityFinal];
-%MinorityError = [missMinority; missMinorityW; missMinorityOS; missMinorityFinal];
-%AUC = [auc1; auc2; auc3; auc4];
-%Matrix = [OverallError, MajorityError, MinorityError, AUC];
-%PlotMatrix = [OverallError'; MajorityError'; MinorityError'; AUC'];
-%
-%ErrorTable = array2table(Matrix,...
-%    'VariableNames', Metrics,...
-%    'RowNames', Models);
-%disp('Error_Table:');
-%disp(ErrorTable);
-%
-%PlotTable = array2table(PlotMatrix,...
-%    'VariableNames', Models,...
-%    'RowNames', Metrics);
+Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
+Metrics = {'Mean_OverallError'; 'Mean_MajorityError'; 'Mean_MinorityError'; 'Mean_AUC'};
+
+means = squeeze(mean(errorResults,1))';
+meanOS = means(:,1);
+meanME = means(:,2);
+meanmE = means(:,3);
+meanAUC = means(:,4);
+
+STDs = squeeze(std(errorResults,1))';
+stdOS = STDs(:,1);
+stdME = STDs(:,2);
+stdmE = STDs(:,3);
+stdAUC = STDs(:,4);
+
+% Prepare columns
+clmOS = [meanOS;missClassRateTest1];
+clmME = [meanME;missMajorityTest1];
+clmmE = [meanmE;missMinorityTest1];
+clmAUC = [meanAUC;aucTest1];
+
+Matrix = [clmOS, clmME, clmmE, clmAUC];
+PlotMatrix = [clmOS'; clmME'; clmmE'; clmAUC'];
+
+ErrorTable = array2table(Matrix,...
+    'VariableNames', Metrics,...
+    'RowNames', Models);
+disp('Error_Table:');
+disp(ErrorTable);
