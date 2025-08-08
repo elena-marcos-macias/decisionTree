@@ -100,7 +100,7 @@ trueBinary = trueLabels == minorityClass{1};
 
 % Preallocate result matrices: 
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
-confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix, run, model]
+confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix (actual class, predicted class), run, model]
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
 
 for run = 1:nRuns
@@ -286,6 +286,50 @@ ErrorTable = array2table(Matrix,...
     'RowNames', Models);
 disp('Error_Table:');
 disp(ErrorTable);
+
+
+
+%% CONFUSION CHART OF HISTOGRAMS
+% Plot histograms for each CV method based on confusionmatResults
+cm_labels = { ...
+    'True Majority (1,1)', ...
+    'False Minority (1,2)', ...
+    'False Majority (2,1)', ...
+    'True Minority (2,2)' };
+
+for m = 1:3  % loop over CV methods
+    figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
+    
+    for pos = 1:4
+        subplot(2, 2, pos);
+        
+        % Map pos index to (row, col) of confusion matrix
+        switch pos
+            case 1, row = 1; col = 1;
+            case 2, row = 1; col = 2;
+            case 3, row = 2; col = 1;
+            case 4, row = 2; col = 2;
+        end
+        
+        % Extract values for all runs for this cell
+        values = squeeze(confusionmatResults(row, col, :, m));
+        
+        % Choose color: blue for true classifications, red for misclassifications
+        if pos == 1 || pos == 4
+            faceColor = [0.2 0.6 0.8]; % blue
+        else
+            faceColor = [0.85 0.33 0.1]; % red
+        end
+        
+        % Plot histogram
+        histogram(values, 10, 'FaceColor', faceColor, 'EdgeColor', 'k');
+        title(cm_labels{pos}, 'FontSize', 10, 'FontWeight', 'bold');
+        xlabel('Count'); ylabel('Frequency');
+        grid on;
+    end
+    
+    sgtitle(['Confusion Matrix Cell Distributions - ' modelNames{m}], 'FontSize', 14);
+end
 
 
 
