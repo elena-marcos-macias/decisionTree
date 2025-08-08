@@ -290,20 +290,42 @@ disp(ErrorTable);
 
 
 %% CONFUSION CHART OF HISTOGRAMS
-% Plot histograms for each CV method based on confusionmatResults
 cm_labels = { ...
     'True Majority (1,1)', ...
     'False Minority (1,2)', ...
     'False Majority (2,1)', ...
     'True Minority (2,2)' };
 
+numBins = 10;
+
 for m = 1:3  % loop over CV methods
+    
+    % --- Step 1: Determine axis limits for this figure ---
+    maxX = -inf;
+    maxY = -inf;
+    
+    for pos = 1:4
+        switch pos
+            case 1, row = 1; col = 1;
+            case 2, row = 1; col = 2;
+            case 3, row = 2; col = 1;
+            case 4, row = 2; col = 2;
+        end
+        values = squeeze(confusionmatResults(row, col, :, m));
+        
+        % Bin manually so we can read bin edges & heights reliably
+        [binCounts, binEdges] = histcounts(values, numBins);
+        maxX = max(maxX, max(binEdges));
+        maxY = max(maxY, max(binCounts));
+    end
+    
+    % --- Step 2: Plot ---
     figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
     
     for pos = 1:4
         subplot(2, 2, pos);
         
-        % Map pos index to (row, col) of confusion matrix
+        % Map pos index to (row, col)
         switch pos
             case 1, row = 1; col = 1;
             case 2, row = 1; col = 2;
@@ -311,26 +333,27 @@ for m = 1:3  % loop over CV methods
             case 4, row = 2; col = 2;
         end
         
-        % Extract values for all runs for this cell
         values = squeeze(confusionmatResults(row, col, :, m));
         
-        % Choose color: blue for true classifications, red for misclassifications
+        % Color: blue for true, red for false
         if pos == 1 || pos == 4
-            faceColor = [0.2 0.6 0.8]; % blue
+            faceColor = [0.2 0.6 0.8];
         else
-            faceColor = [0.85 0.33 0.1]; % red
+            faceColor = [0.85 0.33 0.1];
         end
         
-        % Plot histogram
-        histogram(values, 10, 'FaceColor', faceColor, 'EdgeColor', 'k');
+        histogram(values, numBins, 'FaceColor', faceColor, 'EdgeColor', 'k');
         title(cm_labels{pos}, 'FontSize', 10, 'FontWeight', 'bold');
         xlabel('Count'); ylabel('Frequency');
         grid on;
+        
+        % Apply consistent per-figure axis limits
+        xlim([0, maxX]);
+        ylim([0, maxY]);
     end
     
     sgtitle(['Confusion Matrix Cell Distributions - ' modelNames{m}], 'FontSize', 14);
 end
-
 
 
 %% CONFUSION CHART
