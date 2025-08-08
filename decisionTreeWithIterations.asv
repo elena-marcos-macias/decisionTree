@@ -92,12 +92,15 @@ nFolds = 5;
 % Number of repetitions
 nRuns = 1000;
 
-% Create a logical vector for those results' labels that coincide with the
-% minority class, in this case 'Dead'
-trueBinary = string(T_ResultsVariable) == minorityClass{1};
+% Create string with the results' labels and a logical vector for those results'
+% labels that coincide with the % minority class, in this case 'Dead'
+trueLabels = string(T_ResultsVariable);
+trueBinary = trueLabels == minorityClass{1};
 
-% Preallocate result matrices: rows = repetitions, columns = metrics
+
+% Preallocate result matrices: 
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
+confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix, run, model]
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
 
 for run = 1:nRuns
@@ -115,6 +118,9 @@ for run = 1:nRuns
     [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
     [~,~,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
     errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
+    cm_Label = string(Label);
+    cmSt = confusionmat(trueLabels, cm_Label);
+    confusionmatResults(:,:,run,1) = cmSt;
 
     % ----- 2. Weighted CV Tree -----
     WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
@@ -123,6 +129,9 @@ for run = 1:nRuns
     [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
     [~,~,~,auc2] = perfcurve(trueBinary, wtScore(:,2), 1);
     errorResults(run,:,2) = [missClassRateWeight, missMajorityW, missMinorityW, auc2];
+    cm_wtLabel = string(wtLabel);
+    cmWt = confusionmat(trueLabels, cm_wtLabel);
+    confusionmatResults(:,:,run,2) = cmWt;
 
     % ----- 3. Oversampled CV Tree -----
     [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
@@ -130,18 +139,21 @@ for run = 1:nRuns
     [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
     [~,~,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
     errorResults(run,:,3) = [missClassRateOS, missMajorityOS, missMinorityOS, auc3];
+    cm_OSLabels = string(OSLabels);
+    cmOS = confusionmat(trueLabels, cm_OSLabels);
+    confusionmatResults(:,:,run,3) = cmWt;
 end
 
-metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
-
-for m = 1:3
-    fprintf('\nResults for %s CV:\n', modelNames{m});
-    for k = 1:4
-        meanVal = mean(errorResults(:,k,m));
-        stdVal = std(errorResults(:,k,m));
-        fprintf('%s: Mean = %.4f, Std = %.4f\n', metrics{k}, meanVal, stdVal);
-    end
-end
+%metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
+%
+%for m = 1:3
+%    fprintf('\nResults for %s CV:\n', modelNames{m});
+%    for k = 1:4
+%        meanVal = mean(errorResults(:,k,m));
+%        stdVal = std(errorResults(:,k,m));
+%        fprintf('%s: Mean = %.4f, Std = %.4f\n', metrics{k}, meanVal, stdVal);
+%    end
+%end
 
 
 %% PLOT HISTOGRAMS PER CROSS-VALIDATION METHOD AND MEASURE
@@ -235,9 +247,12 @@ trueBinary = string(T_ResultsVariable) == minorityClass{1};
 
 
 %% QUALITY METRICS TABLE
+% For the 3 cross-validation models the table displays the mean value of 
+% all iterations. For Test1 it displays the value of the test.
+
 % Prepare summary table for errors
 Models = {'Standard CV'; 'Weighted CV'; 'Oversampled CV'; 'Test1 - Training Data'};
-Metrics = {'Mean_OverallError'; 'Mean_MajorityError'; 'Mean_MinorityError'; 'Mean_AUC'};
+Metrics = {'Mean_OverallError'; 'Std_OverallError'; 'Mean_MajorityError'; 'Std_MajorityError'; 'Mean_MinorityError'; 'Std_MinorityError'; 'Mean_AUC'; 'Std_AUC'};
 
 means = squeeze(mean(errorResults,1))';
 meanOS = means(:,1);
@@ -250,18 +265,57 @@ stdOS = STDs(:,1);
 stdME = STDs(:,2);
 stdmE = STDs(:,3);
 stdAUC = STDs(:,4);
+stdTest = ("-");
 
 % Prepare columns
-clmOS = [meanOS;missClassRateTest1];
-clmME = [meanME;missMajorityTest1];
-clmmE = [meanmE;missMinorityTest1];
-clmAUC = [meanAUC;aucTest1];
+clmMeanOS = [meanOS;missClassRateTest1];
+clmMeanME = [meanME;missMajorityTest1];
+clmMeanmE = [meanmE;missMinorityTest1];
+clmMeanAUC = [meanAUC;aucTest1];
+clmStdOS = [stdOS;stdTest];
+clmStdME = [stdME;stdTest];
+clmStdmE = [stdmE;stdTest];
+clmStdAUC = [stdAUC;stdTest];
 
-Matrix = [clmOS, clmME, clmmE, clmAUC];
-PlotMatrix = [clmOS'; clmME'; clmmE'; clmAUC'];
+Matrix = [clmMeanOS, clmStdOS, clmMeanME, clmStdME, clmMeanmE, clmStdmE, clmMeanAUC, clmStdAUC];
+PlotMatrix = [clmMeanOS'; clmStdOS'; clmMeanME'; clmStdME'; clmMeanmE'; clmStdmE'; clmMeanAUC'; clmStdAUC'];
 
+% Create table
 ErrorTable = array2table(Matrix,...
     'VariableNames', Metrics,...
     'RowNames', Models);
 disp('Error_Table:');
 disp(ErrorTable);
+
+
+
+%% CONFUSION CHART
+trueLabels = string(T_ResultsVariable);
+ch_Label = string(Label);
+ch_wtLabel = string(wtLabel);
+ch_OSLabels = string(OSLabels);
+ch_trainingDatasetPredictions = string(test1Labels);
+
+
+figure('Units', 'normalized', 'Position', [0.1 0.3 0.8 0.4]);
+sgtitle('Confusion Matrices per model');
+
+subplot(1,4,1);
+confusionchart(trueLabels, ch_Label);
+title('Standard 5-fold');
+
+subplot(1,4,2);
+confusionchart(trueLabels, ch_wtLabel);
+title('Weighted 5-fold');
+
+subplot(1,4,3);
+confusionchart(trueLabels, ch_OSLabels);
+title('Oversampled 5-fold');
+
+subplot(1,4,4);
+confusionchart(trueLabels, ch_trainingDatasetPredictions);
+title('Final Model');
+
+savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
+
+
