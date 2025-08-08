@@ -39,7 +39,56 @@ minorityClass = string(classNames(minorityIdx));
 
 
 
+%% TRAIN THE DECISION TREE - TRAINING DATASET
+% This section creates a Classification Tree model, trained with the whole
+% dataset informing us of the importance of the predictor variables. It
+% displays a decision tree graph and a predictors' importance bar graph and 
+% table
+
+% ------------------ 1) TREE ------------------ 
+Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
+
+%To visualize the tree
+view(Mdl,'Mode','graph'); 
+savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
+
+% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
+imp = predictorImportance(Mdl);
+predictorNames = Mdl.PredictorNames;
+
+%To visualize the importance as a graph
+figure;
+bar(imp);
+title('Predictor Importance Estimates');
+ylabel('Importance');
+xlabel('Predictors');
+
+ax = gca;
+ax.XTick = 1:numel(predictorNames);
+ax.XTickLabel = predictorNames;
+ax.XTickLabelRotation = 45;
+ax.TickLabelInterpreter = 'none';
+
+savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
+
+%To visualize the importance table
+PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
+disp('PredictorImportance_Table:');
+disp(PredictorImportanceTable);
+
+
+
 %% CROSS-VALIDATION METHODS
+% To validate the model, and since we don't have a different dataset from
+% the training dataset to try it with, we are going to apply
+% cross-validation methods. Since the metrics' variability is very high the
+% experiment will be performed nRuns times. 1. Randomiced K-Fold method. 
+% 2. Weighted K-fold to manage imbalance between minority and majority
+% classes. 3. Oversampled K-fold to manage imbalance.
+
+% Numer of folds for K-fold
+nFolds = 5;
+
 % Number of repetitions
 nRuns = 1000;
 
@@ -53,7 +102,7 @@ for run = 1:nRuns
     % ----- 1. Standard CV Tree -----
     CVMdl = fitctree( ...
         T_Data, T_ResultsVariable, ...
-        'KFold',           5, ...
+        'KFold',           nFolds, ...
         'CategoricalPredictors', {catVariable}, ...
         'MinParentSize',   3);
 
@@ -65,7 +114,7 @@ for run = 1:nRuns
     errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
 
     % ----- 2. Weighted CV Tree -----
-    WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, 5, {catVariable}, 3);
+    WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
     [wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
     missClassRateWeight = kfoldLoss(WeightCVMdl);
     [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
@@ -73,7 +122,7 @@ for run = 1:nRuns
     errorResults(run,:,2) = [missClassRateWeight, missMajorityW, missMinorityW, auc2];
 
     % ----- 3. Oversampled CV Tree -----
-    [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, 5, {catVariable}, 3);
+    [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
     missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
     [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
     [~,~,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
@@ -92,7 +141,7 @@ for m = 1:3
 end
 
 
-%% -------- Plot Histograms per Metric --------
+%% PLOT HISTOGRAMS PER CROSS-VALIDATION METHOD AND MEASURE
 metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
 colors = lines(3);
@@ -130,9 +179,17 @@ figure('Name', 'All Metrics Distributions by Metric Limits', 'NumberTitle', 'off
 for m = 1:3  % rows = models
     for k = 1:4  % columns = metrics
         ax = subplot(3, 4, (m-1)*4 + k);
-        histogram(errorResults(:, k, m), numBins, ...
+        data = errorResults(:, k, m);
+        
+        histogram(data, numBins, ...
             'FaceColor', colors(m, :), ...
             'EdgeColor', 'k');
+        
+        % Calculate mean and add vertical line
+        meanVal = mean(data);
+        hold on;
+        xline(meanVal, '--r', 'LineWidth', 2);
+        hold off;
         
         % Apply axis limits for this metric (column)
         xlim(ax, [metricLimits(k).minX, metricLimits(k).maxX]);
@@ -150,125 +207,12 @@ for m = 1:3  % rows = models
 end
 
 sgtitle('Distribution of Errors per Metric and Model', 'Fontsize', 16);
-
-%% Ploting Bar Graph
-% Labels
-%metricLabels = {'Overall Error', 'Majority Error', 'Minority Error', 'AUC'};
-%modelLabels = {'Standard', 'Weighted', 'Oversampled'};
-%
-%
-% Settings
-%spacing = 10;           % space between groups
-%meanToRunGap = 1;       % artificial space between mean and run bars
-%runBarWidth = 0.8;
-%meanBarWidth = 1.5;
-%
-%for k = 1:4
-%    figure;
-%
-%    data = squeeze(errorResults(:, k, :))';  % size = (3 x 30)
-%
-%    x = [];
-%    y = [];
-%    widths = [];
-%    colors = [];
-%    errorbarX = [];
-%    errorbarY = [];
-%    errorbarStd = [];
-%
-%    currentX = 1;  % running x position
-%
-%    for m = 1:3
-%        % --- Mean bar ---
-%        mu = mean(data(m, :));
-%        sigma = std(data(m, :));
-%
-%        x = [x, currentX];
-%        y = [y, mu];
-%        widths = [widths, meanBarWidth];
-%        colors = [colors; [0.2 0.6 0.9]];  % blue
-%
-%        errorbarX = [errorbarX, currentX];
-%        errorbarY = [errorbarY, mu];
-%        errorbarStd = [errorbarStd, sigma];
-%
-%        % --- Run bars ---
-%        runStartX = currentX + 1 + meanToRunGap;
-%        runXs = runStartX : runStartX + nRuns - 1;
-%        runYs = data(m, :);
-%
-%        x = [x, runXs];
-%        y = [y, runYs];
-%        widths = [widths, repmat(runBarWidth, 1, nRuns)];
-%        colors = [colors; repmat([0.7 0.7 0.7], nRuns, 1)];
-%
-%        % Update currentX for next group
-%        currentX = runXs(end) + spacing;
-%    end
-%
-%    % --- Plotting ---
-%    for i = 1:length(x)
-%        bar(x(i), y(i), widths(i), 'FaceColor', colors(i,:), 'EdgeColor', 'none');
-%        hold on;
-%    end
-%
-%    % Error bars for means
-%    errorbar(errorbarX, errorbarY, errorbarStd, ...
-%        'k', 'LineStyle', 'none', 'LineWidth', 1.2, 'CapSize', 6);
-%
-%    % X-ticks at group centers
-%    groupCenters = errorbarX + (nRuns + meanToRunGap) / 2;
-%    xticks(groupCenters);
-%    xticklabels(modelLabels);
-%
-%    ylabel(metricLabels{k});
-%    title(['Distribution of ', metricLabels{k}, ' Across 30 Runs (Grouped by Model)']);
-%    grid on;
-%    xlim([0, max(x)+1]);
-%end
+savefig(fullfile(savePath, char(json.outputFileNames.crossValidationHistograms)));
 
 
-%% TRAIN THE MODEL
-% This section creates a Classification Tree model, trained with the whole
-% dataset informing us of the importance of the predictor variables. It
-% displays a decision tree graph and a predictors' importance bar graph and 
-% table
 
-% ------------------ 1) TREE ------------------ 
-%Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
-
-%% To visualize the tree
-%view(Mdl,'Mode','graph'); 
-%savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
-%
-%% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
-%imp = predictorImportance(Mdl);
-%predictorNames = Mdl.PredictorNames;
-%
-%% To visualize the importance as a graph
-%figure;
-%bar(imp);
-%title('Predictor Importance Estimates');
-%ylabel('Importance');
-%xlabel('Predictors');
-%
-%ax = gca;
-%ax.XTick = 1:numel(predictorNames);
-%ax.XTickLabel = predictorNames;
-%ax.XTickLabelRotation = 45;
-%ax.TickLabelInterpreter = 'none';
-%
-%savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
-%
-%% To visualize the importance table
-%PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
-%disp('PredictorImportance_Table:');
-%disp(PredictorImportanceTable);
-%
-%
-%
 %% TEST1 - TRAINING DATASET
-%[test1Labels, test1Scores] = predict(Mdl, T_Data);
+[test1Labels, test1Scores] = predict(Mdl, T_Data);
 
 
 

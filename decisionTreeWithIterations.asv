@@ -40,8 +40,18 @@ minorityClass = string(classNames(minorityIdx));
 
 
 %% CROSS-VALIDATION METHODS
+% To validate the model, and since we don't have a different dataset from
+% the training dataset to try it with, we are going to apply
+% cross-validation methods. Since the metrics' variability is very high the
+% experiment will be performed nRuns times. 1. Randomiced K-Fold method. 
+% 2. Weighted K-fold to manage imbalance between minority and majority
+% classes. 3. Oversampled K-fold to manage imbalance.
+
+% Numer of folds for K-fold
+nFolds = K
+
 % Number of repetitions
-nRuns = 30;
+nRuns = 1000;
 
 % Preallocate result matrices: rows = repetitions, columns = metrics
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
@@ -92,123 +102,74 @@ for m = 1:3
 end
 
 
-%% -------- Plot Histograms per Metric --------
+%% PLOT HISTOGRAMS PER CROSS-VALIDATION METHOD AND MEASURE
 metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
-colors = lines(3); % 3 distinguishable colors
-numBins = 15;
+colors = lines(3);
+numBins = 50;
 
-for k = 1:4  % Loop over metrics
-    figure('Name', metrics{k}, 'NumberTitle', 'off');
+% --- 1. Find axis limits per metric across all models ---
+metricLimits = struct();
+
+for k = 1:4
+    minX = inf;
+    maxX = -inf;
+    maxY = 0;
     
-    maxY = 0; % track highest Y value for this metric
-    minX = inf; % track min X
-    maxX = -inf; % track max X
-    
-    ax = gobjects(1,3); % store subplot handles
-    
-    % First pass: plot and record limits
     for m = 1:3
-        ax(m) = subplot(1, 3, m);
-        h = histogram(errorResults(:, k, m), numBins, ...
+        data = errorResults(:, k, m);
+        
+        % Temporary histogram to get bins and values
+        htemp = histogram(data, numBins);
+        
+        minX = min(minX, min(htemp.BinEdges));
+        maxX = max(maxX, max(htemp.BinEdges));
+        maxY = max(maxY, max(htemp.Values));
+        
+        delete(htemp);
+    end
+    
+    metricLimits(k).minX = minX;
+    metricLimits(k).maxX = maxX;
+    metricLimits(k).maxY = maxY;
+end
+
+% --- 2. Plot with metric-specific axis limits ---
+figure('Name', 'All Metrics Distributions by Metric Limits', 'NumberTitle', 'off');
+
+for m = 1:3  % rows = models
+    for k = 1:4  % columns = metrics
+        ax = subplot(3, 4, (m-1)*4 + k);
+        data = errorResults(:, k, m);
+        
+        histogram(data, numBins, ...
             'FaceColor', colors(m, :), ...
             'EdgeColor', 'k');
         
-        % Update limits
-        maxY = max(maxY, max(h.Values));
-        minX = min(minX, min(h.BinEdges));
-        maxX = max(maxX, max(h.BinEdges));
+        % Calculate mean and add vertical line
+        meanVal = mean(data);
+        hold on;
+        xline(meanVal, '--r', 'LineWidth', 2);
+        hold off;
         
-        title(modelNames{m});
-        xlabel(metrics{k});
-        ylabel('Frequency');
+        % Apply axis limits for this metric (column)
+        xlim(ax, [metricLimits(k).minX, metricLimits(k).maxX]);
+        ylim(ax, [0, metricLimits(k).maxY]);
+        
+        if m == 1
+            title(metrics{k}, 'FontSize', 12, 'FontWeight', 'bold');
+        end
+        if k == 1
+            ylabel(modelNames{m}, 'FontSize', 12, 'FontWeight', 'bold');
+        end
+        
         grid on;
     end
-    
-    % Second pass: set same limits for all subplots
-    for m = 1:3
-        ylim(ax(m), [0, maxY]);
-        xlim(ax(m), [minX, maxX]);
-    end
-    
-    sgtitle(sprintf('%s Distribution', metrics{k})); % Shared title
 end
 
-%% Ploting Bar Graph
-% Labels
-%metricLabels = {'Overall Error', 'Majority Error', 'Minority Error', 'AUC'};
-%modelLabels = {'Standard', 'Weighted', 'Oversampled'};
-%
-%
-% Settings
-%spacing = 10;           % space between groups
-%meanToRunGap = 1;       % artificial space between mean and run bars
-%runBarWidth = 0.8;
-%meanBarWidth = 1.5;
-%
-%for k = 1:4
-%    figure;
-%
-%    data = squeeze(errorResults(:, k, :))';  % size = (3 x 30)
-%
-%    x = [];
-%    y = [];
-%    widths = [];
-%    colors = [];
-%    errorbarX = [];
-%    errorbarY = [];
-%    errorbarStd = [];
-%
-%    currentX = 1;  % running x position
-%
-%    for m = 1:3
-%        % --- Mean bar ---
-%        mu = mean(data(m, :));
-%        sigma = std(data(m, :));
-%
-%        x = [x, currentX];
-%        y = [y, mu];
-%        widths = [widths, meanBarWidth];
-%        colors = [colors; [0.2 0.6 0.9]];  % blue
-%
-%        errorbarX = [errorbarX, currentX];
-%        errorbarY = [errorbarY, mu];
-%        errorbarStd = [errorbarStd, sigma];
-%
-%        % --- Run bars ---
-%        runStartX = currentX + 1 + meanToRunGap;
-%        runXs = runStartX : runStartX + nRuns - 1;
-%        runYs = data(m, :);
-%
-%        x = [x, runXs];
-%        y = [y, runYs];
-%        widths = [widths, repmat(runBarWidth, 1, nRuns)];
-%        colors = [colors; repmat([0.7 0.7 0.7], nRuns, 1)];
-%
-%        % Update currentX for next group
-%        currentX = runXs(end) + spacing;
-%    end
-%
-%    % --- Plotting ---
-%    for i = 1:length(x)
-%        bar(x(i), y(i), widths(i), 'FaceColor', colors(i,:), 'EdgeColor', 'none');
-%        hold on;
-%    end
-%
-%    % Error bars for means
-%    errorbar(errorbarX, errorbarY, errorbarStd, ...
-%        'k', 'LineStyle', 'none', 'LineWidth', 1.2, 'CapSize', 6);
-%
-%    % X-ticks at group centers
-%    groupCenters = errorbarX + (nRuns + meanToRunGap) / 2;
-%    xticks(groupCenters);
-%    xticklabels(modelLabels);
-%
-%    ylabel(metricLabels{k});
-%    title(['Distribution of ', metricLabels{k}, ' Across 30 Runs (Grouped by Model)']);
-%    grid on;
-%    xlim([0, max(x)+1]);
-%end
+sgtitle('Distribution of Errors per Metric and Model', 'Fontsize', 16);
+savefig(fullfile(savePath, char(json.outputFileNames.crossValidationHistograms)));
+
 
 
 %% TRAIN THE MODEL
@@ -218,38 +179,38 @@ end
 % table
 
 % ------------------ 1) TREE ------------------ 
-%Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
+Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
 
-%% To visualize the tree
-%view(Mdl,'Mode','graph'); 
-%savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
-%
-%% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
-%imp = predictorImportance(Mdl);
-%predictorNames = Mdl.PredictorNames;
-%
-%% To visualize the importance as a graph
-%figure;
-%bar(imp);
-%title('Predictor Importance Estimates');
-%ylabel('Importance');
-%xlabel('Predictors');
-%
-%ax = gca;
-%ax.XTick = 1:numel(predictorNames);
-%ax.XTickLabel = predictorNames;
-%ax.XTickLabelRotation = 45;
-%ax.TickLabelInterpreter = 'none';
-%
-%savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
-%
-%% To visualize the importance table
-%PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
-%disp('PredictorImportance_Table:');
-%disp(PredictorImportanceTable);
-%
-%
-%
+%To visualize the tree
+view(Mdl,'Mode','graph'); 
+savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
+
+% ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
+imp = predictorImportance(Mdl);
+predictorNames = Mdl.PredictorNames;
+
+%To visualize the importance as a graph
+figure;
+bar(imp);
+title('Predictor Importance Estimates');
+ylabel('Importance');
+xlabel('Predictors');
+
+ax = gca;
+ax.XTick = 1:numel(predictorNames);
+ax.XTickLabel = predictorNames;
+ax.XTickLabelRotation = 45;
+ax.TickLabelInterpreter = 'none';
+
+savefig(fullfile(savePath, char(json.outputFileNames.predictorImportance)));
+
+%To visualize the importance table
+PredictorImportanceTable = table(predictorNames', imp', 'VariableNames', {'Predictor', 'Importance'});
+disp('PredictorImportance_Table:');
+disp(PredictorImportanceTable);
+
+
+
 %% TEST1 - TRAINING DATASET
 %[test1Labels, test1Scores] = predict(Mdl, T_Data);
 

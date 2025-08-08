@@ -16,6 +16,7 @@
      },
     "outputFileNames" : {
         "excelFileName" : "Model_Errors_and_Importance.xlsx",
+        "crossValidationHistograms" : "CrossValidationModels_Histograms",
         "decisionTree" : "DecisionTree.fig",
         "predictorImportance" : "PredictorImportance.fig",
         "confusionCharts" : "ConfusionCharts.fig",
