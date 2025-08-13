@@ -399,42 +399,55 @@ end
 
 [nRows, nCols] = size(confMatTest1);
 
+% Define colors
+blueColor = [0.2 0.6 0.8];
+redColor  = [0.85 0.33 0.1];
+
 if nRows == 2 && nCols == 2
     % Map 2x2 cells to individual tiles
     tileMap = [7, 8; 15, 16];   % top-left, top-right, bottom-left, bottom-right
 
-    % Loop cells and display counts with matching label formatting
+    % Loop cells and display counts with matching label formatting & colors
     for r = 1:2
         for c = 1:2
             tileIndex = tileMap(r,c);
             axCell = nexttile(tBig, tileIndex);
             
-            % Make box visible but remove ticks (so labels show)
+            % Set normalized axes limits so text positions are consistent
             axis(axCell, 'square');
+            axCell.XLim = [0 1];
+            axCell.YLim = [0 1];
             axCell.XTick = [];
             axCell.YTick = [];
             axCell.Box = 'on';
             
-            % Big count in center
-            text(0.5, 0.58, sprintf('%d', confMatTest1(r,c)), ...
+            % select bg color: tiles 7 & 16 blue; 8 & 15 red
+            if tileIndex == 7 || tileIndex == 16
+                bgColor = blueColor;
+            else
+                bgColor = redColor;
+            end
+            axCell.Color = bgColor;
+            
+            % Big count in center (white for contrast)
+            text(0.5, 0.60, sprintf('%d', confMatTest1(r,c)), ...
                 'Parent', axCell, ...
                 'HorizontalAlignment', 'center', ...
                 'VerticalAlignment', 'middle', ...
                 'FontSize', 28, ...
-                'FontWeight', 'bold');
+                'FontWeight', 'bold', ...
+                'Color', 'w');
             
             % Place class labels following the same rules as the histograms:
-            % - left-column tiles show a ylabel with the TRUE class (FontSize 14, bold)
-            % - bottom-row tiles show an xlabel with the PREDICTED class (FontSize 14, bold)
             lblTrue = char(cmClassNames(r));
             lblPred = char(cmClassNames(c));
             if c == 1
-                % left column -> show TRUE class as ylabel
-                ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold');
+                % left column -> show TRUE class as ylabel (white for contrast)
+                ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'w');
             end
             if r == 2
-                % bottom row -> show PRED class as xlabel
-                xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold');
+                % bottom row -> show PRED class as xlabel (white)
+                xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'w');
             end
         end
     end
@@ -472,7 +485,6 @@ else
         xlabel(axConf, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
         ylabel(axConf, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
     else
-        % still set generic labels with same formatting
         xlabel(axConf, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
         ylabel(axConf, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
     end
