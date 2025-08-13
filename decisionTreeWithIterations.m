@@ -293,7 +293,8 @@ disp(ErrorTable);
 numBins = 10;
 
 % Create one big tiledlayout (2 rows × 8 columns)
-bigFig = figure('Name', 'All Confusion Matrix Histograms', 'NumberTitle', 'off');
+bigFig = figure('Name', 'All Confusion Matrix Histograms', 'NumberTitle', 'off',...
+    'Position', [65,248.2,1415.2,353.6]);  % [x, y, ancho, alto]);
 tBig = tiledlayout(bigFig, 2, 8, ...
     'TileSpacing', 'compact', ...
     'Padding', 'compact');
@@ -440,12 +441,12 @@ if nRows == 2 && nCols == 2
             lblTrue = char(cmClassNames(r));
             lblPred = char(cmClassNames(c));
             if c == 1
-                % left column -> show TRUE class as ylabel (white for contrast)
-                ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'w');
+                % left column -> show TRUE class as ylabel (black for contrast)
+                ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k');
             end
             if r == 2
-                % bottom row -> show PRED class as xlabel (white)
-                xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'w');
+                % bottom row -> show PRED class as xlabel (black)
+                xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k');
             end
         end
     end
@@ -487,6 +488,8 @@ else
         ylabel(axConf, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
     end
 end
+
+
 
 % --- Global labels for the big layout ---
 xlabel(tBig, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
