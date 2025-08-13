@@ -299,18 +299,15 @@ tBig = tiledlayout(bigFig, 2, 8, ...
     'Padding', 'compact');
 
 % Define tile positions for each model's histograms
-% Row 1 tiles: 1–8, Row 2 tiles: 9–16
 tilePositions = { [1, 2, 9, 10], ... % Model 1
                   [3, 4, 11, 12], ... % Model 2
                   [5, 6, 13, 14] };   % Model 3
 % Blank: [7, 8, 15, 16]
 
-for m = 1:3  % loop over CV methods
-    
-    % --- Step 1: Determine axis limits for this model ---
-    maxX = -inf;
-    maxY = -inf;
-    
+% --- Paso 0: Calcular límites globales ---
+maxXGlobal = -inf;
+maxYGlobal = -inf;
+for m = 1:3
     for pos = 1:4
         switch pos
             case 1, row = 1; col = 1;
@@ -319,15 +316,16 @@ for m = 1:3  % loop over CV methods
             case 4, row = 2; col = 2;
         end
         values = squeeze(confusionmatResults(row, col, :, m));
-        
         [binCounts, binEdges] = histcounts(values, numBins);
-        maxX = max(maxX, max(binEdges));
-        maxY = max(maxY, max(binCounts));
+        maxXGlobal = max(maxXGlobal, max(binEdges));
+        maxYGlobal = max(maxYGlobal, max(binCounts));
     end
-    
-    % --- Step 2: Plot histograms into assigned tiles ---
+end
+
+% --- Paso 1: Dibujar histogramas usando límites globales ---
+for m = 1:3
     for pos = 1:4
-        ax = nexttile(tBig, tilePositions{m}(pos)); % Go to correct tile
+        ax = nexttile(tBig, tilePositions{m}(pos));
         
         switch pos
             case 1, row = 1; col = 1;
@@ -349,8 +347,8 @@ for m = 1:3  % loop over CV methods
         axis(ax, 'square');
         grid(ax, 'on');
         
-        xlim(ax, [0, maxX]);
-        ylim(ax, [0, maxY]);
+        xlim(ax, [0, maxXGlobal]);
+        ylim(ax, [0, maxYGlobal]);
         
         % Labels
         switch pos
