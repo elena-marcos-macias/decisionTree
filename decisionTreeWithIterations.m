@@ -289,12 +289,25 @@ disp(ErrorTable);
 
 
 
-%% CONFUSION CHART OF HISTOGRAMS USING tiledlayout
+%% CONFUSION CHART OF HISTOGRAMS - 2×8 LAYOUT
 numBins = 10;
+
+% Create one big tiledlayout (2 rows × 8 columns)
+bigFig = figure('Name', 'All Confusion Matrix Histograms', 'NumberTitle', 'off');
+tBig = tiledlayout(bigFig, 2, 8, ...
+    'TileSpacing', 'compact', ...
+    'Padding', 'compact');
+
+% Define tile positions for each model's histograms
+% Row 1 tiles: 1–8, Row 2 tiles: 9–16
+tilePositions = { [1, 2, 9, 10], ... % Model 1
+                  [3, 4, 11, 12], ... % Model 2
+                  [5, 6, 13, 14] };   % Model 3
+% Blank: [7, 8, 15, 16]
 
 for m = 1:3  % loop over CV methods
     
-    % --- Step 1: Determine axis limits for this figure ---
+    % --- Step 1: Determine axis limits for this model ---
     maxX = -inf;
     maxY = -inf;
     
@@ -312,15 +325,9 @@ for m = 1:3  % loop over CV methods
         maxY = max(maxY, max(binCounts));
     end
     
-    % --- Step 2: Create tiled layout ---
-    fig = figure('Name', ['Confusion Matrix Histograms - ' modelNames{m}], 'NumberTitle', 'off');
-    t = tiledlayout(fig, 2, 2, ...
-        'TileSpacing', 'compact', ...
-        'Padding', 'compact');  % control spacing
-    
-    % --- Step 3: Plot histograms ---
+    % --- Step 2: Plot histograms into assigned tiles ---
     for pos = 1:4
-        ax = nexttile(t, pos);  % go to the correct tile
+        ax = nexttile(tBig, tilePositions{m}(pos)); % Go to correct tile
         
         switch pos
             case 1, row = 1; col = 1;
@@ -359,20 +366,122 @@ for m = 1:3  % loop over CV methods
                 ylabel(ax, '');
         end
     end
-    
-    % --- Step 4: Add global X/Y labels to the tiledlayout ---
-    xlabel(t, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
-    ylabel(t, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
-    
-    % --- Step 5: Figure's title ---
-    title(t, ['Confusion Matrix Cell Distributions - ' modelNames{m}], ...
-        'FontSize', 14);
-
-    % --- Step 6: Save the figure ---
-    filename = ['Confusion_Histograms_' modelNames{m} '.fig'];
-
 end
 
+% --- Compute confusion matrix for test1 and display its values in tiles 7,8,15,16 ---
+
+% Ensure test1Labels and true labels exist
+if ~exist('test1Labels','var') || ~exist('T_ResultsVariable','var')
+    error('Variables test1Labels or T_ResultsVariable not found in workspace.');
+end
+
+% Convert labels to cellstr for consistent display/labeling
+try
+    trueLabelsForCM = cellstr(T_ResultsVariable);
+catch
+    trueLabelsForCM = cellstr(string(T_ResultsVariable));
+end
+try
+    predLabelsForCM = cellstr(test1Labels);
+catch
+    predLabelsForCM = cellstr(string(test1Labels));
+end
+
+% Compute confusion matrix (rows = true, cols = predicted)
+confMatTest1 = confusionmat(trueLabelsForCM, predLabelsForCM);
+
+% Get class names in the order used by confusionmat (stable order from true labels)
+if exist('classNames','var') && numel(classNames) == size(confMatTest1,1)
+    cmClassNames = classNames;
+else
+    cmClassNames = unique(trueLabelsForCM, 'stable');
+end
+
+[nRows, nCols] = size(confMatTest1);
+
+if nRows == 2 && nCols == 2
+    % Map 2x2 cells to individual tiles
+    tileMap = [7, 8; 15, 16];   % top-left, top-right, bottom-left, bottom-right
+
+    % Loop cells and display counts with matching label formatting
+    for r = 1:2
+        for c = 1:2
+            tileIndex = tileMap(r,c);
+            axCell = nexttile(tBig, tileIndex);
+            
+            % Make box visible but remove ticks (so labels show)
+            axis(axCell, 'square');
+            axCell.XTick = [];
+            axCell.YTick = [];
+            axCell.Box = 'on';
+            
+            % Big count in center
+            text(0.5, 0.58, sprintf('%d', confMatTest1(r,c)), ...
+                'Parent', axCell, ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', ...
+                'FontSize', 28, ...
+                'FontWeight', 'bold');
+            
+            % Place class labels following the same rules as the histograms:
+            % - left-column tiles show a ylabel with the TRUE class (FontSize 14, bold)
+            % - bottom-row tiles show an xlabel with the PREDICTED class (FontSize 14, bold)
+            lblTrue = char(cmClassNames(r));
+            lblPred = char(cmClassNames(c));
+            if c == 1
+                % left column -> show TRUE class as ylabel
+                ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold');
+            end
+            if r == 2
+                % bottom row -> show PRED class as xlabel
+                xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold');
+            end
+        end
+    end
+
+else
+    % If not 2x2, span tiles 7,8,15,16 and draw heatmap with annotations
+    axConf = nexttile(tBig, 7, [2, 2]);  % spans tiles 7,8,15,16
+    imagesc(axConf, confMatTest1);
+    axis(axConf, 'image');
+    colormap(axConf, parula);
+    colorbar('peer', axConf);
+    title(axConf, 'Confusion matrix (counts)', 'FontSize', 12, 'FontWeight', 'bold');
+
+    % Annotate each cell with its numeric value
+    [nr, nc] = size(confMatTest1);
+    for i = 1:nr
+        for j = 1:nc
+            text(j, i, sprintf('%d', confMatTest1(i,j)), ...
+                'Parent', axConf, ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', ...
+                'FontSize', 11, ...
+                'FontWeight', 'bold', ...
+                'Color', 'w');
+        end
+    end
+
+    % Use class names if available and set axis labels with same formatting
+    if numel(cmClassNames) == nr
+        xticks(axConf, 1:nc);
+        yticks(axConf, 1:nr);
+        xticklabels(axConf, cmClassNames);
+        yticklabels(axConf, cmClassNames);
+        xtickangle(axConf, 45);
+        xlabel(axConf, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
+        ylabel(axConf, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
+    else
+        % still set generic labels with same formatting
+        xlabel(axConf, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
+        ylabel(axConf, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
+    end
+end
+
+% --- Global labels for the big layout ---
+xlabel(tBig, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
+ylabel(tBig, 'Actual Class', 'FontSize', 14, 'FontWeight', 'bold');
+title(tBig, 'Confusion Matrix Cell Distributions (All Models)', 'FontSize', 16);
 
 %% CONFUSION CHART
 trueLabels = string(T_ResultsVariable);
