@@ -524,8 +524,8 @@ groupBoxes = {
 };
 
 % Extra spacing parameters to make the rectangles wider and shifted left
-extraPadLeft  = 0.0085;  % how much extra to extend on the LEFT (normalized units)
-extraPadRight = 0.0;  % how much extra to extend on the RIGHT
+extraPadLeft  = 0.020;  % how much extra to extend on the LEFT (normalized units)
+extraPadRight = 0.01;  % how much extra to extend on the RIGHT
 pad = 0.008;            % base padding used previously
 
 for g = 1:numel(groupBoxes)
