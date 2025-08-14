@@ -289,7 +289,7 @@ disp(ErrorTable);
 
 
 
-%% CONFUSION CHART OF HISTOGRAMS - 2×8 LAYOUT (GROUP BOXES SHIFTED LEFT + WIDER)
+%% CONFUSION CHART OF HISTOGRAMS - 2×8 LAYOUT
 numBins = 10;
 
 % Create one big tiledlayout (2 rows × 8 columns)
@@ -423,96 +423,73 @@ end
 
 [nRows, nCols] = size(confMatTest1);
 
+% --- ASSUME 2x2 confusion matrix (per your request). Error if not 2x2. ---
+if ~(nRows == 2 && nCols == 2)
+    error('confMatTest1 is not 2x2. This script assumes a 2x2 confusion matrix.');
+end
+
 % Define colors
 blueColor = [0.2 0.6 0.8];
 redColor  = [0.85 0.33 0.1];
 
-if nRows == 2 && nCols == 2
-    % Map 2x2 cells to individual tiles (top-left, top-right, bottom-left, bottom-right)
-    tileMap = [7, 8; 15, 16];   % top-left, top-right, bottom-left, bottom-right
+% Label offset values (normalized units relative to each axis)
+% these ensure labels sit further away from tick labels, matching the separation of other tiles
+xLabelOffset = -0.18;   % negative => move down (for XLabel)
+yLabelOffset = -0.21;   % negative => move left (for YLabel)
 
-    % Loop cells and display counts with matching label formatting & colors
-    for r = 1:2
-        for c = 1:2
-            tileIndex = tileMap(r,c);
-            axCell = axesHandles(tileIndex);
-            
-            cla(axCell);                      % clear placeholders but keep axes
-            axis(axCell, 'square');
-            axCell.XLim = [0 1];
-            axCell.YLim = [0 1];
-            axCell.XTick = [];
-            axCell.YTick = [];
-            axCell.Box = 'on';
-            
-            % select bg color: tiles 7 & 16 blue; 8 & 15 red
-            if tileIndex == 7 || tileIndex == 16
-                bgColor = blueColor;
-            else
-                bgColor = redColor;
-            end
-            axCell.Color = bgColor;
-            
-            % Big count in center (white for contrast)
-            text(0.5, 0.60, sprintf('%d', confMatTest1(r,c)), ...
-                'Parent', axCell, ...
-                'HorizontalAlignment', 'center', ...
-                'VerticalAlignment', 'middle', ...
-                'FontSize', 28, ...
-                'FontWeight', 'bold', ...
-                'Color', 'w');
-            
-            % Place class labels following the same rules as the histograms:
-            lblTrue = char(cmClassNames(r));
-            lblPred = char(cmClassNames(c));
-            if c == 1
-                % left column -> show TRUE class as ylabel (black for contrast)
-                ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k');
-            end
-            if r == 2
-                % bottom row -> show PRED class as xlabel (black)
-                xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k');
-            end
+% Map 2x2 cells to individual tiles (top-left, top-right, bottom-left, bottom-right)
+tileMap = [7, 8; 15, 16];   % top-left, top-right, bottom-left, bottom-right
+
+% Loop cells and display counts with matching label formatting & colors
+for r = 1:2
+    for c = 1:2
+        tileIndex = tileMap(r,c);
+        axCell = axesHandles(tileIndex);
+
+        cla(axCell);                      % clear placeholders but keep axes
+        axis(axCell, 'square');
+        axCell.XLim = [0 1];
+        axCell.YLim = [0 1];
+        axCell.XTick = [];
+        axCell.YTick = [];
+        axCell.Box = 'on';
+
+        % select bg color: tiles 7 & 16 blue; 8 & 15 red
+        if tileIndex == 7 || tileIndex == 16
+            bgColor = blueColor;
+        else
+            bgColor = redColor;
+        end
+        axCell.Color = bgColor;
+
+        % Big count in center (white for contrast)
+        text(0.5, 0.60, sprintf('%d', confMatTest1(r,c)), ...
+            'Parent', axCell, ...
+            'HorizontalAlignment', 'center', ...
+            'VerticalAlignment', 'middle', ...
+            'FontSize', 28, ...
+            'FontWeight', 'bold', ...
+            'Color', 'w');
+
+        % Place class labels following the same rules as the histograms:
+        lblTrue = char(cmClassNames(r));
+        lblPred = char(cmClassNames(c));
+        if c == 1
+            % left column -> show TRUE class as ylabel (black for contrast)
+            ylabel(axCell, lblTrue, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k');
+            % move ylabel outward (normalized units)
+            axCell.YLabel.Units = 'normalized';
+            % center vertically and push left
+            axCell.YLabel.Position = [yLabelOffset, 0.5, 0];
+        end
+        if r == 2
+            % bottom row -> show PRED class as xlabel (black)
+            xlabel(axCell, lblPred, 'FontSize', 14, 'FontWeight', 'bold', 'Color', 'k');
+            % move xlabel outward (normalized units)
+            axCell.XLabel.Units = 'normalized';
+            axCell.XLabel.Position = [0.5, xLabelOffset, 0];
         end
     end
-
-else
-    % If not 2x2, draw a compact heatmap INSIDE tile 7 only (do NOT delete or replace tiles 8,15,16)
-    axConf = axesHandles(7);   % use the tile 7 axis
-    cla(axConf);
-    imagesc(axConf, confMatTest1);
-    axis(axConf, 'image');
-    colormap(axConf, parula);
-    colorbar('peer', axConf);
-    title(axConf, 'Confusion matrix (counts)', 'FontSize', 12, 'FontWeight', 'bold');
-
-    % Annotate each cell with its numeric value
-    [nr, nc] = size(confMatTest1);
-    for i = 1:nr
-        for j = 1:nc
-            text(axConf, j, i, sprintf('%d', confMatTest1(i,j)), ...
-                'HorizontalAlignment', 'center', ...
-                'VerticalAlignment', 'middle', ...
-                'FontSize', 11, ...
-                'FontWeight', 'bold', ...
-                'Color', 'w');
-        end
-    end
-
-    % Use class names if available and set axis labels with same formatting
-    if numel(cmClassNames) == nr
-        xticks(axConf, 1:nc);
-        yticks(axConf, 1:nr);
-        xticklabels(axConf, cmClassNames);
-        yticklabels(axConf, cmClassNames);
-        xtickangle(axConf, 45);
-        xlabel(axConf, 'Predicted Class', 'FontSize', 12, 'FontWeight', 'bold');
-        ylabel(axConf, 'Actual Class', 'FontSize', 12, 'FontWeight', 'bold');
-    else
-        xlabel(axConf, 'Predicted Class', 'FontSize', 12, 'FontWeight', 'bold');
-        ylabel(axConf, 'Actual Class', 'FontSize', 12, 'FontWeight', 'bold');
-    end
-    % Tiles 8,15,16 remain visible as placeholders (unchanged)
 end
 
 % --- Draw bounding boxes around each 2x2 group (so they read as 2x2 mini-grids) ---
@@ -525,12 +502,12 @@ groupBoxes = {
 
 % Extra spacing parameters to make the rectangles wider and shifted left
 extraPadLeft  = 0.0085;  % how much extra to extend on the LEFT (normalized units)
-extraPadRight = 0.0;  % how much extra to extend on the RIGHT
-pad = 0.008;            % base padding used previously
+extraPadRight = 0.0;     % how much extra to extend on the RIGHT
+pad = 0.008;             % base padding used previously
 
 for g = 1:numel(groupBoxes)
     tileIDs = groupBoxes{g};
-    
+
     % Collect positions for these tiles (use axes handles; they all exist)
     posList = zeros(numel(tileIDs), 4);
     validCount = 0;
@@ -545,7 +522,7 @@ for g = 1:numel(groupBoxes)
         continue;
     end
     posList = posList(1:validCount, :);
-    
+
     % Compute bounding rectangle in normalized figure coordinates
     xMin = min(posList(:,1));
     yMin = min(posList(:,2));
@@ -553,7 +530,7 @@ for g = 1:numel(groupBoxes)
     yMax = max(posList(:,2) + posList(:,4));
     width = xMax - xMin;
     height = yMax - yMin;
-    
+
     % Make rectangle wider and shift it left a bit. Clamp to [0,1].
     rectLeft  = max(0, xMin - pad - extraPadLeft);
     rectWidth = width + 2*pad + extraPadLeft + extraPadRight;
@@ -567,11 +544,11 @@ for g = 1:numel(groupBoxes)
         rectHeight = 1 - rectBottom;
     end
     rectPos = [rectLeft, rectBottom, rectWidth, rectHeight];
-    
+
     % Draw rectangle annotation (keeps underlying axes intact and visible)
     annotation(bigFig, 'rectangle', rectPos, ...
         'Color', [0 0 0], 'LineWidth', 1.5, 'LineStyle', '-');
-    
+
     % Add a small centered title above the group (non-intrusive textbox)
     switch g
         case 1, labelStr = 'Model 1';
@@ -597,6 +574,8 @@ title(tBig, 'Confusion Matrix Cell Distributions (All Models)', 'FontSize', 16);
 
 % (Optional) save the figure:
 % savefig(bigFig, fullfile(savePath, char(json.outputFileNames.confusionMatrixGrouped)));
+
+
 
 
 %% CONFUSION CHART
