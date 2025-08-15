@@ -101,6 +101,10 @@ trueBinary = trueLabels == minorityClass{1};
 % Preallocate result matrices: 
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
 confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix (actual class, predicted class), run, model]
+CoordBestAUC = zeros(3, 2, 3);
+    CurrentBestauc = zeros(1,3);
+CoodWorstAUC = zeros(3, 2, 3);
+    CurrentWorstauc = zeros (1,3);
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
 
 for run = 1:nRuns
@@ -116,32 +120,58 @@ for run = 1:nRuns
     [Label, Score] = kfoldPredict(CVMdl);
     missClassRate = kfoldLoss(CVMdl);
     [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
-    [~,~,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
+    [fp1,tp1,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
     errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
     cm_Label = string(Label);
     cmSt = confusionmat(trueLabels, cm_Label);
     confusionmatResults(:,:,run,1) = cmSt;
+    if CurrentBestauc(1) < auc1
+        CurrentBestauc(1) = auc1;
+        CoordBestAUC (:,:,1) = [fp1, tp1];
+    end
+    if CurrentWorstauc(1) < auc1
+        CurrentWorstauc(1) = auc1;
+        CoordWorstAUC (:,:,1) = [fp1, tp1];
+    end
 
     % ----- 2. Weighted CV Tree -----
     WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
     [wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
     missClassRateWeight = kfoldLoss(WeightCVMdl);
     [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
-    [~,~,~,auc2] = perfcurve(trueBinary, wtScore(:,2), 1);
+    [fp2,tp2,~,auc2] = perfcurve(trueBinary, wtScore(:,2), 1);
     errorResults(run,:,2) = [missClassRateWeight, missMajorityW, missMinorityW, auc2];
     cm_wtLabel = string(wtLabel);
     cmWt = confusionmat(trueLabels, cm_wtLabel);
     confusionmatResults(:,:,run,2) = cmWt;
+    if CurrentBestauc(2) < auc2
+        CurrentBestauc(2) = auc2;
+        CoordBestAUC (:,:,2) = [fp2, tp2];
+    end
+    if CurrentWorstauc(2) < auc2
+        CurrentWorstauc(2) = auc2;
+        CoordWorstAUC (:,:,2) = [fp2, tp2];
+    end
 
     % ----- 3. Oversampled CV Tree -----
     [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
     missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
     [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
-    [~,~,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
+    [fp3,tp3,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
     errorResults(run,:,3) = [missClassRateOS, missMajorityOS, missMinorityOS, auc3];
     cm_OSLabels = string(OSLabels);
     cmOS = confusionmat(trueLabels, cm_OSLabels);
     confusionmatResults(:,:,run,3) = cmOS;
+    if CurrentBestauc(3) < auc3
+        CurrentBestauc(3) = auc3;
+        CoordBestAUC (:,:,3) = [fp3, tp3];
+    end
+    if CurrentWorstauc(3) < auc3
+        CurrentWorstauc(3) = auc3;
+        CoordWorstAUC (:,:,3) = [fp3, tp3];
+    end
+
+
 end
 
 %metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
@@ -242,7 +272,7 @@ missClassRateTest1 = sum(~strcmp(test1Labels, T_ResultsVariable)) / numel(T_Resu
 trueBinary = string(T_ResultsVariable) == minorityClass{1};
 
 % Obtain the AUC
-[~,~,~,aucTest1] = perfcurve(trueBinary, test1Scores(:,2), 1);
+[fp4,tp4,~,aucTest1] = perfcurve(trueBinary, test1Scores(:,2), 1);
 
 
 
@@ -577,8 +607,7 @@ savefig(bigFig, fullfile(savePath, char(json.outputFileNames.confusionMatrixGrou
 
 
 
-
-%% CONFUSION CHART
+%% EXAMPLE CONFUSION CHART
 trueLabels = string(T_ResultsVariable);
 ch_Label = string(Label);
 ch_wtLabel = string(wtLabel);
@@ -606,3 +635,25 @@ confusionchart(trueLabels, ch_trainingDatasetPredictions);
 title('Final Model');
 
 savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
+
+
+
+%% ROC CURVES
+figure; hold on;
+plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+[fp1,tp1] = perfcurve(trueBinary, Score(:,2), 1); plot(fp1,tp1, 'LineWidth', 2);
+[fp2,tp2] = perfcurve(trueBinary, wtScore(:,2), 1); plot(fp2,tp2, 'LineWidth', 2);
+[fp3,tp3] = perfcurve(trueBinary, OSScores(:,2), 1); plot(fp3,tp3, 'LineWidth', 2);
+[fp4,tp4] = perfcurve(trueBinary, test1Scores(:,2), 1); plot(fp4,tp4, 'LineWidth', 2);
+
+legend({ ...
+    sprintf('cvStandard (AUC = %.3f)', auc1), ...
+    sprintf('cvWeighted (AUC = %.3f)', auc2), ...
+    sprintf('cvOversampled (AUC = %.3f)', auc3), ...
+    sprintf('TrainingData (AUC = %.3f)', auc4)}, ...
+    'Location', 'SouthEast');
+
+xlabel('False Positive Rate'); ylabel('True Positive Rate');
+title('ROC Curves for All Models');
+grid on;
+savefig(fullfile(savePath, char(json.outputFileNames.ROC_Curves)));

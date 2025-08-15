@@ -216,7 +216,7 @@ PlotTable = array2table(PlotMatrix,...
 %
 %
 %
-%%% ROC CURVES
+%% ROC CURVES
 %figure; hold on;
 %plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
 %[fp1,tp1] = perfcurve(trueBinary, Score(:,2), 1); plot(fp1,tp1, 'LineWidth', 2);
