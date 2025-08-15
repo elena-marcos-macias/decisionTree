@@ -101,18 +101,17 @@ trueBinary = trueLabels == minorityClass{1};
 % Preallocate result matrices: 
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
 confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix (actual class, predicted class), run, model]
-CoordBestAUC = zeros(3, 2, 3); % [points to plot, axes, model] -> axes = [X, Y]
-    CurrentBestauc = zeros(1,3); 
-CoodWorstAUC = zeros(3, 2, 3); % [points to plot, axes, model] -> axes = [X, Y]
-    CurrentWorstauc = zeros (1,3);
+CoordBestAUC = ones(10, 2, 3); % [points to plot, axes, model] -> axes = [X, Y]
+    CurrentBestauc = zeros(1,3); % [auc value, model] 
+CoordWorstAUC = ones(10, 2, 3); % [points to plot, axes, model] -> axes = [X, Y]
+    CurrentWorstauc = zeros (1,3); % [auc value, model] 
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
 
 for run = 1:nRuns
     fprintf('Running iteration %d of %d...\n', run, nRuns);
 
     % ----- 1. Standard CV Tree -----
-    CVMdl = fitctree( ...
-        T_Data, T_ResultsVariable, ...
+    CVMdl = fitctree(T_Data, T_ResultsVariable, ...
         'KFold',           nFolds, ...
         'CategoricalPredictors', {catVariable}, ...
         'MinParentSize',   3);
@@ -127,11 +126,11 @@ for run = 1:nRuns
     confusionmatResults(:,:,run,1) = cmSt;
     if CurrentBestauc(1) < auc1
         CurrentBestauc(1) = auc1;
-        CoordBestAUC (:,:,1) = [fp1, tp1];
+        CoordBestAUC ((1:length(fp1)),:,1) = [fp1, tp1];
     end
     if CurrentWorstauc(1) < auc1
         CurrentWorstauc(1) = auc1;
-        CoordWorstAUC (:,:,1) = [fp1, tp1];
+        CoordWorstAUC ((1:length(fp1)),:,1) = [fp1, tp1];
     end
 
     % ----- 2. Weighted CV Tree -----
@@ -146,11 +145,11 @@ for run = 1:nRuns
     confusionmatResults(:,:,run,2) = cmWt;
     if CurrentBestauc(2) < auc2
         CurrentBestauc(2) = auc2;
-        CoordBestAUC (:,:,2) = [fp2, tp2];
+        CoordBestAUC ((1:length(fp2)),:,2) = [fp2, tp2];
     end
     if CurrentWorstauc(2) < auc2
         CurrentWorstauc(2) = auc2;
-        CoordWorstAUC (:,:,2) = [fp2, tp2];
+        CoordWorstAUC ((1:length(fp2)),:,2) = [fp2, tp2];
     end
 
     % ----- 3. Oversampled CV Tree -----
@@ -164,11 +163,11 @@ for run = 1:nRuns
     confusionmatResults(:,:,run,3) = cmOS;
     if CurrentBestauc(3) < auc3
         CurrentBestauc(3) = auc3;
-        CoordBestAUC (:,:,3) = [fp3, tp3];
+        CoordBestAUC ((1:length(fp3)),:,3) = [fp3, tp3];
     end
     if CurrentWorstauc(3) < auc3
         CurrentWorstauc(3) = auc3;
-        CoordWorstAUC (:,:,3) = [fp3, tp3];
+        CoordWorstAUC ((1:length(fp3)),:,3) = [fp3, tp3];
     end
 
 
@@ -639,21 +638,91 @@ savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
 
 
 %% ROC CURVES
-figure; hold on;
-plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
-[fp1,tp1] = perfcurve(trueBinary, Score(:,2), 1); plot(fp1,tp1, 'LineWidth', 2);
-[fp2,tp2] = perfcurve(trueBinary, wtScore(:,2), 1); plot(fp2,tp2, 'LineWidth', 2);
-[fp3,tp3] = perfcurve(trueBinary, OSScores(:,2), 1); plot(fp3,tp3, 'LineWidth', 2);
-[fp4,tp4] = perfcurve(trueBinary, test1Scores(:,2), 1); plot(fp4,tp4, 'LineWidth', 2);
+Bfp1 = CoordBestAUC(:,1,1);
+Btp1 = CoordBestAUC(:,2,1);
+PlotBauc1 = CurrentBestauc(:,1);
+
+Wfp1 = CoordWorstAUC(:,1,1);
+Wtp1 = CoordWorstAUC(:,2,1);
+PlotWauc1 = CurrentWorstauc(:,1);
+
+Bfp2 = CoordBestAUC(:,1,2);
+Btp2 = CoordBestAUC(:,2,2);
+PlotBauc2 = CurrentBestauc(:,2);
+
+Wfp2 = CoordWorstAUC(:,1,2);
+Wtp2 = CoordWorstAUC(:,2,2);
+PlotWauc2 = CurrentWorstauc(:,2);
+
+Bfp3 = CoordBestAUC(:,1,3);
+Btp3 = CoordBestAUC(:,2,3);
+PlotBauc3 = CurrentBestauc(:,3);
+
+Wfp3 = CoordWorstAUC(:,1,3);
+Wtp3 = CoordWorstAUC(:,2,3);
+
+ROCfig = figure;
+
+    % ROC curve for BEST performing cross-validation models
+    subplot(1,3,1); hold on;
+    plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+    plot(Bfp1,Btp1, 'LineWidth', 2); % Standard
+    plot(Bfp2,Btp2, 'LineWidth', 2); % Weighted
+    plot(Bfp3,Btp3, 'LineWidth', 2); % Oversampled
+    plot(fp4,tp4, 'LineWidth', 2);   % Test1
+    legend({ ...
+    sprintf('cvStandard (AUC = %.3f)', auc1), ...
+    sprintf('cvWeighted (AUC = %.3f)', auc2), ...
+    sprintf('cvOversampled (AUC = %.3f)', auc3), ...
+    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
+    'Location', 'SouthEast');
+    xlabel('False Positive Rate'); ylabel('True Positive Rate');
+    title('BEST performing iterations');
+    grid on;
+
+    % ROC curve for WORST performing cross-validation models
+    subplot(1,3,2); hold on;
+    plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+    plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
+    plot(Wfp2,Wtp2, 'LineWidth', 2); % Weighted
+    plot(Wfp3,Wtp3, 'LineWidth', 2); % Oversampled
+    plot(fp4,tp4, 'LineWidth', 2);   % Test1
+    legend({ ...
+    sprintf('cvStandard (AUC = %.3f)', auc1), ...
+    sprintf('cvWeighted (AUC = %.3f)', auc2), ...
+    sprintf('cvOversampled (AUC = %.3f)', auc3), ...
+    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
+    'Location', 'SouthEast');
+    xlabel('False Positive Rate'); ylabel('True Positive Rate');
+    title('WORST performing iterations');
+    grid on;
+
+    % ROC curve for MEDIAN value of cross-validation models
+    subplot(1,3,3); hold on;
+    plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+    plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
+    plot(Wfp2,Wtp2, 'LineWidth', 2); % Weighted
+    plot(Wfp3,Wtp3, 'LineWidth', 2); % Oversampled
+    plot(fp4,tp4, 'LineWidth', 2);   % Test1
+    legend({ ...
+    sprintf('cvStandard (AUC = %.3f)', auc1), ...
+    sprintf('cvWeighted (AUC = %.3f)', auc2), ...
+    sprintf('cvOversampled (AUC = %.3f)', auc3), ...
+    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
+    'Location', 'SouthEast');
+    xlabel('False Positive Rate'); ylabel('True Positive Rate');
+    title('MEDIAN value of iterations');
+    grid on;
+
+% --- Global labels for the big layout ---
+sgtitle('ROC Curves for All Models', 'FontSize', 16);
 
 legend({ ...
     sprintf('cvStandard (AUC = %.3f)', auc1), ...
     sprintf('cvWeighted (AUC = %.3f)', auc2), ...
     sprintf('cvOversampled (AUC = %.3f)', auc3), ...
-    sprintf('TrainingData (AUC = %.3f)', auc4)}, ...
+    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
     'Location', 'SouthEast');
 
-xlabel('False Positive Rate'); ylabel('True Positive Rate');
-title('ROC Curves for All Models');
-grid on;
-savefig(fullfile(savePath, char(json.outputFileNames.ROC_Curves)));
+% Save the figure:
+savefig(ROCfig, fullfile(savePath, char(json.outputFileNames.ROC_Curves)));
