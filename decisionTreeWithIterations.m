@@ -101,10 +101,10 @@ trueBinary = trueLabels == minorityClass{1};
 % Preallocate result matrices: 
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
 confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix (actual class, predicted class), run, model]
-CoordBestAUC = zeros(3, 2, 3);
-    CurrentBestauc = zeros(1,3);
-CoodWorstAUC = zeros(3, 2, 3);
-    CurrentWorstauc = zeros (1,3);
+CoordBestAUC = zeros(3, 2, 3); % [points to plot, axes, model] -> axes = [X, Y]
+    CurrentBestauc = zeros(1,3); % [auc value, model] 
+CoodWorstAUC = zeros(3, 2, 3); % [points to plot, axes, model] -> axes = [X, Y]
+    CurrentWorstauc = zeros (1,3); % [auc value, model] 
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
 
 for run = 1:nRuns
