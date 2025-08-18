@@ -185,6 +185,7 @@ end
 %end
 
 
+
 %% PLOT HISTOGRAMS PER CROSS-VALIDATION METHOD AND MEASURE
 metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
 modelNames = {'Standard', 'Weighted', 'Oversampled'};
@@ -666,53 +667,56 @@ ROCfig = figure;
 
     % ROC curve for BEST performing cross-validation models
     subplot(1,3,1); hold on;
-    plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
-    plot(Bfp1,Btp1, 'LineWidth', 2); % Standard
-    plot(Bfp2,Btp2, 'LineWidth', 2); % Weighted
-    plot(Bfp3,Btp3, 'LineWidth', 2); % Oversampled
-    plot(fp4,tp4, 'LineWidth', 2);   % Test1
+        plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+        plot(Bfp1,Btp1, 'LineWidth', 2); % Standard
+        plot(Bfp2,Btp2, 'LineWidth', 2); % Weighted
+        plot(Bfp3,Btp3, 'LineWidth', 2); % Oversampled
+        plot(fp4,tp4, 'LineWidth', 2);   % Test1
+
     legend({ ...
-    sprintf('cvStandard (AUC = %.3f)', PlotBauc1), ...
-    sprintf('cvWeighted (AUC = %.3f)', PlotBauc2), ...
-    sprintf('cvOversampled (AUC = %.3f)', PlotBauc3), ...
-    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
-    'Location', 'SouthEast');
+        sprintf('cvStandard (AUC = %.3f)', PlotBauc1), ...
+        sprintf('cvWeighted (AUC = %.3f)', PlotBauc2), ...
+        sprintf('cvOversampled (AUC = %.3f)', PlotBauc3), ...
+        sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
+        'Location', 'SouthEast');
     xlabel('False Positive Rate'); ylabel('True Positive Rate');
     title('BEST performing iterations');
     grid on;
 
     % ROC curve for WORST performing cross-validation models
     subplot(1,3,2); hold on;
-    plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
-    plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
-    plot(Wfp2,Wtp2, 'LineWidth', 2); % Weighted
-    plot(Wfp3,Wtp3, 'LineWidth', 2); % Oversampled
-    plot(fp4,tp4, 'LineWidth', 2);   % Test1
+        plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+        plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
+        plot(Wfp2,Wtp2, 'LineWidth', 2); % Weighted
+        plot(Wfp3,Wtp3, 'LineWidth', 2); % Oversampled
+        plot(fp4,tp4, 'LineWidth', 2);   % Test1
+
     legend({ ...
-    sprintf('cvStandard (AUC = %.3f)', PlotWauc1), ...
-    sprintf('cvWeighted (AUC = %.3f)', PlotWauc2), ...
-    sprintf('cvOversampled (AUC = %.3f)', PlotWauc3), ...
-    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
-    'Location', 'SouthEast');
+        sprintf('cvStandard (AUC = %.3f)', PlotWauc1), ...
+        sprintf('cvWeighted (AUC = %.3f)', PlotWauc2), ...
+        sprintf('cvOversampled (AUC = %.3f)', PlotWauc3), ...
+        sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
+        'Location', 'SouthEast');
     xlabel('False Positive Rate'); ylabel('True Positive Rate');
     title('WORST performing iterations');
     grid on;
 
-    % ROC curve for MEDIAN value of cross-validation models X
-    subplot(1,3,3); hold on;
-    plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
-    plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
-    plot(Wfp2,Wtp2, 'LineWidth', 2); % Weighted
-    plot(Wfp3,Wtp3, 'LineWidth', 2); % Oversampled
-    plot(fp4,tp4, 'LineWidth', 2);   % Test1
+    % ROC curve for MEDIAN value of cross-validation models
+    subplot(1,3,2); hold on;
+        plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
+        plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
+        plot(Wfp2,Wtp2, 'LineWidth', 2); % Weighted
+        plot(Wfp3,Wtp3, 'LineWidth', 2); % Oversampled
+        plot(fp4,tp4, 'LineWidth', 2);   % Test1
+
     legend({ ...
-    sprintf('cvStandard (AUC = %.3f)', auc1), ...
-    sprintf('cvWeighted (AUC = %.3f)', auc2), ...
-    sprintf('cvOversampled (AUC = %.3f)', auc3), ...
-    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
-    'Location', 'SouthEast');
+        sprintf('cvStandard (AUC = %.3f)', PlotWauc1), ...
+        sprintf('cvWeighted (AUC = %.3f)', PlotWauc2), ...
+        sprintf('cvOversampled (AUC = %.3f)', PlotWauc3), ...
+        sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
+        'Location', 'SouthEast');
     xlabel('False Positive Rate'); ylabel('True Positive Rate');
-    title('MEDIAN value of iterations');
+    title('WORST performing iterations');
     grid on;
 
 % --- Global labels for the big layout ---
