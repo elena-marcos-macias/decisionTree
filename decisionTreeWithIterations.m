@@ -736,7 +736,7 @@ savefig(fullfile(savePath, char(json.outputFileNames.confusionCharts)));
     Mauc3 = double(Results(3).median_closest.auc);
 
 
-ROCfig = figure;
+ROCfig = figure ('Position', [3,393,1676,455]);
 
     % ROC curve for BEST performing cross-validation models
     subplot(1,3,1); hold on;
@@ -804,3 +804,14 @@ legend({ ...
 
 % Save the figure:
 savefig(ROCfig, fullfile(savePath, char(json.outputFileNames.ROC_Curves)));
+
+
+
+%% CREATE AN EXCEL FILE 
+excelFileName = fullfile(savePath, char(json.outputFileNames.excelFileName));
+
+% Write error summary to sheet1
+writetable(ErrorTable, excelFileName, 'Sheet', 'Errors', 'WriteRowNames', true);
+
+% Write predictor importance to sheet2
+writetable(PredictorImportanceTable, excelFileName, 'Sheet', 'PredictorImportance');

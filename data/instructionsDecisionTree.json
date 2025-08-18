@@ -21,7 +21,7 @@
         "predictorImportance" : "PredictorImportance.fig",
         "confusionMatrixGrouped" : "ConfusionMatrixGrouped.fig",
         "confusionCharts" : "ConfusionCharts.fig",
-        "ROC_Curves" : "ROC_Curves.fig"
+        "ROC_Curves" : "CrossValidationModels_ROC.fig"
     },
 
 
