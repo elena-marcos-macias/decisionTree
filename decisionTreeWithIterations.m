@@ -698,7 +698,7 @@ ROCfig = figure;
     title('WORST performing iterations');
     grid on;
 
-    % ROC curve for MEDIAN value of cross-validation models x
+    % ROC curve for MEDIAN value of cross-validation models y
     subplot(1,3,3); hold on;
     plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
     plot(Wfp1,Wtp1, 'LineWidth', 2); % Standard
