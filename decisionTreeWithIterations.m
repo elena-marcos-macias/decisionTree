@@ -254,61 +254,53 @@ modelNames = {'Standard', 'Weighted', 'Oversampled'};
 colors = lines(3);
 numBins = 50;
 
-% --- 1. Find axis limits per metric across all models ---
-metricLimits = struct();
+% --- 1. Find global axis limits across ALL histograms ---
+globalMinX = inf;
+globalMaxX = -inf;
+globalMaxY = 0;
 
-for k = 1:4
-    minX = inf;
-    maxX = -inf;
-    maxY = 0;
-    
-    for m = 1:3
+for m = 1:3
+    for k = 1:4
         data = errorResults(:, k, m);
-        
-        % Temporary histogram to get bins and values
+
+        % Temporary histogram to inspect bin edges and values
         htemp = histogram(data, numBins);
-        
-        minX = min(minX, min(htemp.BinEdges));
-        maxX = max(maxX, max(htemp.BinEdges));
-        maxY = max(maxY, max(htemp.Values));
-        
+        globalMinX = min(globalMinX, min(htemp.BinEdges));
+        globalMaxX = max(globalMaxX, max(htemp.BinEdges));
+        globalMaxY = max(globalMaxY, max(htemp.Values));
         delete(htemp);
     end
-    
-    metricLimits(k).minX = minX;
-    metricLimits(k).maxX = maxX;
-    metricLimits(k).maxY = maxY;
 end
 
-% --- 2. Plot with metric-specific axis limits ---
-figure('Name', 'All Metrics Distributions by Metric Limits', 'NumberTitle', 'off');
+% --- 2. Plot with the same global axis limits ---
+figure('Name', 'All Metrics Distributions with Global Limits', 'NumberTitle', 'off');
 
 for m = 1:3  % rows = models
     for k = 1:4  % columns = metrics
         ax = subplot(3, 4, (m-1)*4 + k);
         data = errorResults(:, k, m);
-        
+
         histogram(data, numBins, ...
             'FaceColor', colors(m, :), ...
             'EdgeColor', 'k');
-        
-        % Calculate mean and add vertical line
+
+        % Add mean vertical line
         meanVal = mean(data);
         hold on;
         xline(meanVal, '--r', 'LineWidth', 2);
         hold off;
-        
-        % Apply axis limits for this metric (column)
-        xlim(ax, [metricLimits(k).minX, metricLimits(k).maxX]);
-        ylim(ax, [0, metricLimits(k).maxY]);
-        
+
+        % Apply same global axis limits
+        xlim(ax, [globalMinX, globalMaxX]);
+        ylim(ax, [0, globalMaxY]);
+
         if m == 1
             title(metrics{k}, 'FontSize', 12, 'FontWeight', 'bold');
         end
         if k == 1
             ylabel(modelNames{m}, 'FontSize', 12, 'FontWeight', 'bold');
         end
-        
+
         grid on;
     end
 end
