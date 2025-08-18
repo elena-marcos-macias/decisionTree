@@ -9,23 +9,20 @@ json = readstruct("data/instructionsDecisionTree.json");
 
 
 %% TRAINING DATASET
+fileName = fullfile('./data', json.inputDataSelection.fileName);
+T_Original = rmmissing(readtable(fileName)); % Remove rows that contain at least one NaN
 
-%--------- Load data ---------
-fileName = char(json.inputDataSelection.fileName);
-T_Original = readtable(['./data/' fileName]);
+% --------- Separate Predictor and Results variables
+    % Stablish array with PREDICTOR variables
+    T_Data = selectColumns(T_Original, ...
+        json.inputDataSelection.columnCriteria.target_columns, ...
+        json.inputDataSelection.columnCriteria.ignore_columns);
+    
+    catVariable = char(json.inputDataSelection.catVariable); % String indicating that there is a CATEGORICAL variable within the PREDICTOR variables
+    
+    % Stablish array with RESULTS variable
+    T_ResultsVariable = T_Original.Death;
 
-% -------- Remove rows with NaN --------
-T_Original = rmmissing(T_Original);  % Remove rows that contain at least one NaN
-
-% -------- Select data to use (columns with string or numerical criteria) ---------------
-target_columns = json.inputDataSelection.columnCriteria.target_columns;
-ignore_columns = json.inputDataSelection.columnCriteria.ignore_columns;
-
-T_Data = selectColumns (T_Original, target_columns, ignore_columns);
-T_ResultsVariable = T_Original.Death;
-
-% --------- Categorical variable -------
-catVariable = char(json.inputDataSelection.catVariable);
 
 % --------- Identify minority and majority classes -------------
 [classNames, ~, idxClass] = unique(T_ResultsVariable);
@@ -100,71 +97,23 @@ trueBinary = trueLabels == minorityClass{1};
 % Preallocate result matrices: 
 errorResults = zeros(nRuns, 4, 3);  % [run, metric, model] -> metric = [Overall, Maj, Min, AUC]
 confusionmatResults = zeros(2,2,nRuns,3); % [2x2 confusion matrix (actual class, predicted class), run, model]
-modelNames = {'Standard', 'Weighted', 'Oversampled'};
+
 
 % New: store FP, TP (variable-length) in cell arrays and AUCs in numeric matrix
 FPAll = cell(nRuns, 3);   % FPAll{run, model} = fp vector
 TPAll = cell(nRuns, 3);   % TPAll{run, model} = tp vector
 AUCs  = zeros(nRuns, 3);  % AUCs(run, model) = auc
 
+modelNames = {'Standard', 'Weighted', 'Oversampled'};
+
 for run = 1:nRuns
-    fprintf('Running iteration %d of %d...\n', run, nRuns);
-
-    % ----- 1. Standard CV Tree -----
-    CVMdl = fitctree(T_Data, T_ResultsVariable, ...
-        'KFold',           nFolds, ...
-        'CategoricalPredictors', {catVariable}, ...
-        'MinParentSize',   3);
-
-    [Label, Score] = kfoldPredict(CVMdl);
-    missClassRate = kfoldLoss(CVMdl);
-    [missMajority, missMinority] = classwiseMisclassification(T_ResultsVariable, Label, majorityClass, minorityClass);
-    [fp1,tp1,~,auc1] = perfcurve(trueBinary, Score(:,2), 1);
-
-    % save metrics
-    errorResults(run,:,1) = [missClassRate, missMajority, missMinority, auc1];
-    cm_Label = string(Label);
-    cmSt = confusionmat(trueLabels, cm_Label);
-    confusionmatResults(:,:,run,1) = cmSt;
-
-    % store FP/TP/AUC
-    FPAll{run,1} = fp1(:);   % ensure column
-    TPAll{run,1} = tp1(:);
-    AUCs(run,1)  = auc1;
-
-    % ----- 2. Weighted CV Tree -----
-    WeightCVMdl = fitctreeWeightCV(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
-    [wtLabel, wtScore] = kfoldPredict(WeightCVMdl);
-    missClassRateWeight = kfoldLoss(WeightCVMdl);
-    [missMajorityW, missMinorityW] = classwiseMisclassification(T_ResultsVariable, wtLabel, majorityClass, minorityClass);
-    [fp2,tp2,~,auc2] = perfcurve(trueBinary, wtScore(:,2), 1);
-
-    errorResults(run,:,2) = [missClassRateWeight, missMajorityW, missMinorityW, auc2];
-    cm_wtLabel = string(wtLabel);
-    cmWt = confusionmat(trueLabels, cm_wtLabel);
-    confusionmatResults(:,:,run,2) = cmWt;
-
-    % store FP/TP/AUC
-    FPAll{run,2} = fp2(:);
-    TPAll{run,2} = tp2(:);
-    AUCs(run,2)  = auc2;
-
-    % ----- 3. Oversampled CV Tree -----
-    [OSLabels, OSScores] = kfoldPredictOS(T_Data, T_ResultsVariable, nFolds, {catVariable}, 3);
-    missClassRateOS = sum(~strcmp(OSLabels, T_ResultsVariable)) / numel(T_ResultsVariable);
-    [missMajorityOS, missMinorityOS] = classwiseMisclassification(T_ResultsVariable, OSLabels, majorityClass, minorityClass);
-    [fp3,tp3,~,auc3] = perfcurve(trueBinary, OSScores(:,2), 1);
-
-    errorResults(run,:,3) = [missClassRateOS, missMajorityOS, missMinorityOS, auc3];
-    cm_OSLabels = string(OSLabels);
-    cmOS = confusionmat(trueLabels, cm_OSLabels);
-    confusionmatResults(:,:,run,3) = cmOS;
-
-    % store FP/TP/AUC
-    FPAll{run,3} = fp3(:);
-    TPAll{run,3} = tp3(:);
-    AUCs(run,3)  = auc3;
-
+    fprintf('Run %d/%d...\n', run, nRuns);
+    for m = 1:numel(modelNames)
+        [errorResults(run,:,m), confusionmatResults(:,:,run,m), ...
+         FPAll{run,m}, TPAll{run,m}, AUCs(run,m)] = ...
+            runCV(modelNames{m}, T_Data, T_ResultsVariable, nFolds, ...
+                  catVariable, majorityClass, minorityClass, trueBinary);
+    end
 end
 
 % AFTER THE RUNS: find max, min and closest-to-median for each model
@@ -233,19 +182,6 @@ for m = 1:3
     fprintf('Model: %s  |  max AUC = %.4f (run %d), min AUC = %.4f (run %d), median-close AUC = %.4f (run %d)\n', ...
         modelNames{m}, auc_max, idxMax, auc_min, idxMin, auc_med, idxMed);
 end
-
-
-%metrics = {'OverallError', 'MajorityError', 'MinorityError', 'AUC'};
-%
-%for m = 1:3
-%    fprintf('\nResults for %s CV:\n', modelNames{m});
-%    for k = 1:4
-%        meanVal = mean(errorResults(:,k,m));
-%        stdVal = std(errorResults(:,k,m));
-%        fprintf('%s: Mean = %.4f, Std = %.4f\n', metrics{k}, meanVal, stdVal);
-%    end
-%end
-
 
 
 %% PLOT HISTOGRAMS PER CROSS-VALIDATION METHOD AND MEASURE
