@@ -25,10 +25,15 @@ T_Original = rmmissing(readtable(['./data/' fileName])); % Load and Remove rows 
 
     % Identify minority and majority classes
     [classNames, ~, idxClass] = unique(T_ResultsVariable);
-    counts = accumarray(idxClass, 1);
-    
-    [~, majorityIdx] = max(counts);
-    [~, minorityIdx] = min(counts);
+    counts = accumarray(idxClass,(ones(numel(T_ResultsVariable),1)));
+  
+    if max(counts) ~= min(counts)
+        [~, majorityIdx] = max(counts);
+        [~, minorityIdx] = min(counts);
+    elseif max(counts) == min(counts)
+        [~, majorityIdx] = max(counts);
+        minorityIdx = majorityIdx+1;
+    end
     
     majorityClass = string(classNames(majorityIdx));
     minorityClass = string(classNames(minorityIdx));
@@ -696,13 +701,6 @@ ROCfig = figure ('Position', [3,393,1676,455]);
 
 % --- Global labels for the big layout ---
 sgtitle('ROC Curves for All Models', 'FontSize', 16);
-
-legend({ ...
-    sprintf('cvStandard (AUC = %.3f)', auc1), ...
-    sprintf('cvWeighted (AUC = %.3f)', auc2), ...
-    sprintf('cvOversampled (AUC = %.3f)', auc3), ...
-    sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
-    'Location', 'SouthEast');
 
 % Save the figure:
 savefig(ROCfig, fullfile(savePath, char(json.outputFileNames.ROC_Curves)));

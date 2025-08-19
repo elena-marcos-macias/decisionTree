@@ -1,6 +1,6 @@
 {
    "inputDataSelection" :{
-        "fileName" : "FUS_test6.xlsx",
+        "fileName" : "FUS_testHom.xlsx",
         "columnCriteria" : {
                             "target_columns" : [1,22],
                             "ignore_columns" : [2,3]
@@ -9,16 +9,16 @@
         "catVariable" : "Genotype"
      },
     "crossValidationMethods" : {
-        "nFolds" : [5],
+        "nFolds" : [3],
         "nRuns" : [1000]
     },
     "outputFileNames" : {
-        "excelFileName" : "Model_Errors_and_Importance.xlsx",
-        "crossValidationHistograms" : "CrossValidationModels_Histograms",
-        "decisionTree" : "DecisionTree.fig",
-        "predictorImportance" : "PredictorImportance.fig",
-        "confusionMatrixGrouped" : "ConfusionMatrixGrouped.fig",
-        "confusionCharts" : "ConfusionCharts.fig",
-        "ROC_Curves" : "CrossValidationModels_ROC.fig"
+        "excelFileName" : "HOM_Model_Errors_and_Importance.xlsx",
+        "crossValidationHistograms" : "HOM_CrossValidationModels_Histograms",
+        "decisionTree" : "HOM_DecisionTree.fig",
+        "predictorImportance" : "HOM_PredictorImportance.fig",
+        "confusionMatrixGrouped" : "HOM_ConfusionMatrixGrouped.fig",
+        "confusionCharts" : "HOM_ConfusionCharts.fig",
+        "ROC_Curves" : "HOM_CrossValidationModels_ROC.fig"
     }                    
 }

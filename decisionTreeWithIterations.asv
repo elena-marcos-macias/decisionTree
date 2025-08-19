@@ -25,10 +25,15 @@ T_Original = rmmissing(readtable(['./data/' fileName])); % Load and Remove rows 
 
     % Identify minority and majority classes
     [classNames, ~, idxClass] = unique(T_ResultsVariable);
-    counts = accumarray(idxClass, 1);
-    
-    [~, majorityIdx] = max(counts);
-    [~, minorityIdx] = min(counts);
+    counts = accumarray(idxClass,(ones(numel(T_ResultsVariable),1)));
+  
+    if max(counts) ~= min(counts)
+        [~, majorityIdx] = max(counts);
+        [~, minorityIdx] = min(counts);
+    elseif max(counts) == min(counts)
+        [~, majorityIdx] = max(counts);
+        minorityIdx = majorityIdx+1;
+    end
     
     majorityClass = string(classNames(majorityIdx));
     minorityClass = string(classNames(minorityIdx));
@@ -560,80 +565,6 @@ for r = 1:2
     end
 end
 
-% --- Draw bounding boxes around each 2x2 group (so they read as 2x2 mini-grids) ---
-%groupBoxes = {
-%    [1, 2, 9, 10],   % Model 1
-%    [3, 4, 11, 12],  % Model 2
-%    [5, 6, 13, 14],  % Model 3
-%    [7, 8, 15, 16]   % Test confusion matrix tiles
-%};
-%
-% % Extra spacing parameters to make the rectangles wider and shifted left
-%extraPadLeft  = 0.0085;  % how much extra to extend on the LEFT (normalized units)
-%extraPadRight = 0.0;     % how much extra to extend on the RIGHT
-%pad = 0.008;             % base padding used previously
-%
-%for g = 1:numel(groupBoxes)
-%    tileIDs = groupBoxes{g};
-%
-%    % Collect positions for these tiles (use axes handles; they all exist)
-%    posList = zeros(numel(tileIDs), 4);
-%    validCount = 0;
-%    for t = 1:numel(tileIDs)
-%        idx = tileIDs(t);
-%        if isgraphics(axesHandles(idx))
-%            validCount = validCount + 1;
-%            posList(validCount, :) = axesHandles(idx).Position;
-%        end
-%    end
-%    if validCount == 0
-%        continue;
-%    end
-%    posList = posList(1:validCount, :);
-%
-%    % Compute bounding rectangle in normalized figure coordinates
-%    xMin = min(posList(:,1));
-%    yMin = min(posList(:,2));
-%    xMax = max(posList(:,1) + posList(:,3));
-%    yMax = max(posList(:,2) + posList(:,4));
-%    width = xMax - xMin;
-%    height = yMax - yMin;
-%
-%    % Make rectangle wider and shift it left a bit. Clamp to [0,1].
-%    rectLeft  = max(0, xMin - pad - extraPadLeft);
-%    rectWidth = width + 2*pad + extraPadLeft + extraPadRight;
-%    % ensure rectWidth doesn't overflow the right side of figure
-%    if rectLeft + rectWidth > 1
-%        rectWidth = 1 - rectLeft;
-%    end
-%    rectBottom = max(0, yMin - pad);
-%    rectHeight = height + 2*pad;
-%    if rectBottom + rectHeight > 1
-%        rectHeight = 1 - rectBottom;
-%    end
-%    rectPos = [rectLeft, rectBottom, rectWidth, rectHeight];
-%
-%    % Draw rectangle annotation (keeps underlying axes intact and visible)
-%    annotation(bigFig, 'rectangle', rectPos, ...
-%        'Color', [0 0 0], 'LineWidth', 1.5, 'LineStyle', '-');
-%
-%    % Add a small centered title above the group (non-intrusive textbox)
-%    switch g
-%        case 1, labelStr = 'Model 1';
-%        case 2, labelStr = 'Model 2';
-%        case 3, labelStr = 'Model 3';
-%        case 4, labelStr = 'Test Confusion';
-%        otherwise, labelStr = '';
-%    end
-%    tbHeight = 0.035;
-%    tbWidth  = rectPos(3) * 0.5;
-%    tbX = rectPos(1) + (rectPos(3) - tbWidth)/2;
-%    tbY = rectPos(2) + rectPos(4) + 0.002;  % place a little above the rectangle
-%    annotation(bigFig, 'textbox', [tbX, tbY, tbWidth, tbHeight], ...
-%        'String', labelStr, ...
-%        'HorizontalAlignment','center', 'VerticalAlignment','middle', ...
-%        'EdgeColor','none', 'FontWeight','bold', 'FontSize', 11);
-%end
 
 % --- Global labels for the big layout ---
 xlabel(tBig, 'Predicted Class', 'FontSize', 14, 'FontWeight', 'bold');
@@ -719,13 +650,13 @@ ROCfig = figure ('Position', [3,393,1676,455]);
         plot([0 1], [0 1], 'k--', 'LineWidth', 1.2, 'HandleVisibility', 'off');  % Diagonal
         plot(Bfp1,Btp1, 'LineWidth', 2); % Standard
         plot(Bfp2,Btp2, 'LineWidth', 2); % Weighted
-        plot(Bfp3,Btp3, 'LineWidth', 2); % Oversampled
+        %plot(Bfp3,Btp3, 'LineWidth', 2); % Oversampled
         plot(fp4,tp4, 'LineWidth', 2);   % Test1
 
     legend({ ...
         sprintf('cvStandard (AUC = %.3f)', Bauc1), ...
         sprintf('cvWeighted (AUC = %.3f)', Bauc2), ...
-        sprintf('cvOversampled (AUC = %.3f)', Bauc3), ...
+        %sprintf('cvOversampled (AUC = %.3f)', Bauc3), ...
         sprintf('TrainingData (AUC = %.3f)', aucTest1)}, ...
         'Location', 'SouthEast');
     xlabel('False Positive Rate'); ylabel('True Positive Rate');
