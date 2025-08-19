@@ -5,15 +5,13 @@
                             "target_columns" : [1,22],
                             "ignore_columns" : [2,3]
                         },
-        "catVariable" : "Genotype",
-        "groupOrder" : ["WT",
-                        "Het",
-                        "Hom"],
-        "groupControl" : {
-                            "controlGroup1" : "WT",
-                            "controlGroup2" : "Het"
-                        }
+        "resultsVariable" : "Death",
+        "catVariable" : "Genotype"
      },
+    "crossValidationMethods" : {
+        "nFolds" : [5],
+        "nRuns" : [1000]
+    },
     "outputFileNames" : {
         "excelFileName" : "Model_Errors_and_Importance.xlsx",
         "crossValidationHistograms" : "CrossValidationModels_Histograms",
@@ -22,70 +20,5 @@
         "confusionMatrixGrouped" : "ConfusionMatrixGrouped.fig",
         "confusionCharts" : "ConfusionCharts.fig",
         "ROC_Curves" : "CrossValidationModels_ROC.fig"
-    },
-
-
-
-
-    
-    "wantGraph": "no", 
-    "graphSpecifications" : {
-        "graphTitle" : "FUS 18FDG-PET (normWB)",
-        "xAxisLabel" : "Brain Regions",
-        "yAxisLabel" : "[1/1]",
-        "highlightVariable": {
-            "showHighlightVariable": "yes",
-            "highlightVariable": "Death",
-            "trueHighlightVariable": "yes"
-        },
-        "Group1" :{
-             "fillColor" : "white",
-             "lineColor" : "gray",
-             "markerShape" : "^",
-             "filledStatus" : "filled"
-                },
-        "Group2" :{
-             "fillColor" : "gray",
-             "lineColor" : "black",
-             "markerShape" : "o",
-             "filledStatus" : "none"
-                },
-        "Group3" :{
-             "fillColor" : "white",
-             "lineColor" : "black",
-             "markerShape" : "s",
-             "filledStatus" : "filled"
-                },
-        "Group4" :{
-             "fillColor" : "color",
-             "lineColor" : "color",
-             "markerShape" : "^",
-             "filledStatus" : "none"
-                },
-        "Group5" :{
-             "fillColor" : "color",
-             "lineColor" : "color",
-             "markerShape" : "^",
-             "filledStatus" : "none"
-                },
-        "Group6" :{
-             "fillColor" : "color",
-             "lineColor" : "color",
-             "markerShape" : "^",
-             "filledStatus" : "none"
-                },
-        "Group7" :{
-             "fillColor" : "color",
-             "lineColor" : "color",
-             "markerShape" : "^",
-             "filledStatus" : "none"
-                },
-        "Group8" :{
-             "fillColor" : "color",
-             "lineColor" : "color",
-             "markerShape" : "^",
-             "filledStatus" : "none"
-                }       
-        
     }                    
 }
