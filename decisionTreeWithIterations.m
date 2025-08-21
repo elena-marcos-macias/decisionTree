@@ -46,12 +46,37 @@ T_Original = rmmissing(readtable(['./data/' fileName])); % Load and Remove rows 
 % displays a decision tree graph and a predictors' importance bar graph and 
 % table
 
-% ------------------ 1) TREE ------------------ 
-Mdl = fitctree(T_Data, T_ResultsVariable, 'CategoricalPredictors', {catVariable}, 'MinParentSize',3);
 
-%To visualize the tree
-view(Mdl,'Mode','graph'); 
-savefig(fullfile(savePath, char(json.outputFileNames.decisionTree)));
+%    % Try (B) high-res PNG via print (classic figures)
+%    try
+%        print(treeFig, fullfile(savePath, 'decisionTree.png'), '-dpng', '-r300');
+%    catch
+%        % Try (C) UIFigure export (App Designer-style windows)
+%        if exist('exportapp', 'file') == 2
+%            exportapp(treeFig, fullfile(savePath, 'decisionTree.png'));
+%        else
+%            % Try (D) last-resort snapshot
+%            fr = getframe(treeFig);
+%            imwrite(fr.cdata, fullfile(savePath, 'decisionTree.png'));
+%        end
+%    end
+%end
+
+% ------------------ 1) TREE ------------------ 
+Mdl = fitctree(T_Data, T_ResultsVariable, ...
+    'CategoricalPredictors', {catVariable}, 'MinParentSize', 3);
+
+    % Open the (GUI) tree viewer
+    view(Mdl, 'Mode', 'graph');
+    drawnow; pause(0.1);  % give MATLAB a beat to create the window
+    
+    % Get the most recently created figure (the tree viewer)
+    allFigs = findall(groot, 'Type', 'figure');
+    treeFig = allFigs(1);   % newest figure
+    
+    % Save vector PDF via exportgraphics
+        exportgraphics(treeFig, fullfile(savePath, char(json.outputFileNames.decisionTree)), 'ContentType', 'vector');
+
 
 % ------------------ 2) PREDICTORS' IMPORTANCE ------------------ 
 imp = predictorImportance(Mdl);
