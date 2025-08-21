@@ -320,7 +320,7 @@ for m = 1:3  % rows = models
 end
 
 sgtitle('Distribution of Errors per Metric and Model', 'Fontsize', 16);
-savefig(fullfile(savePath, char(json.outputFileNames.crossValidationHistograms)));
+(fullfile(savePath, char(json.outputFileNames.crossValidationHistograms)));
 
 
 
